@@ -40,7 +40,9 @@ $appVersion = '1.0.0';
 
 <div id="app" class="app">
 
-    <!-- ================= SIDEBAR ================= -->
+    <!-- =====================================================
+         SIDEBAR
+         ===================================================== -->
 
     <aside
         id="sidebar"
@@ -65,6 +67,7 @@ $appVersion = '1.0.0';
             <button
                 id="closeSidebar"
                 class="icon-button mobile-only"
+                type="button"
                 aria-label="Close sidebar"
             >
                 ×
@@ -76,9 +79,15 @@ $appVersion = '1.0.0';
         <button
             id="newChatButton"
             class="new-chat-button"
+            type="button"
         >
+
             <span class="new-chat-icon">＋</span>
-            <span>New chat</span>
+
+            <span>
+                New chat
+            </span>
+
         </button>
 
 
@@ -88,10 +97,21 @@ $appVersion = '1.0.0';
                 Recent
             </div>
 
-            <div id="historyList" class="history-list">
+            <div
+                id="historyList"
+                class="chat-history"
+            >
 
-                <div class="history-empty">
-                    Your conversations will appear here.
+                <div class="history-item">
+
+                    <span class="history-icon">
+                        💬
+                    </span>
+
+                    <span class="history-title">
+                        Your conversations will appear here.
+                    </span>
+
                 </div>
 
             </div>
@@ -99,22 +119,35 @@ $appVersion = '1.0.0';
         </div>
 
 
-        <div class="sidebar-footer">
+        <div class="sidebar-bottom">
 
             <button
-                class="sidebar-action"
+                class="sidebar-button"
                 id="settingsButton"
+                type="button"
             >
+
                 <span>⚙</span>
-                <span>Settings</span>
+
+                <span>
+                    Settings
+                </span>
+
             </button>
 
+
             <button
-                class="sidebar-action"
+                class="sidebar-button"
                 id="aboutButton"
+                type="button"
             >
+
                 <span>ⓘ</span>
-                <span>About Ankul AI</span>
+
+                <span>
+                    About Ankul AI
+                </span>
+
             </button>
 
         </div>
@@ -122,11 +155,16 @@ $appVersion = '1.0.0';
     </aside>
 
 
-    <!-- ================= MAIN ================= -->
+    <!-- =====================================================
+         MAIN
+         ===================================================== -->
 
     <main class="main">
 
-        <!-- TOP NAVIGATION -->
+
+        <!-- =================================================
+             TOPBAR
+             ================================================= -->
 
         <header class="topbar">
 
@@ -134,33 +172,41 @@ $appVersion = '1.0.0';
 
                 <button
                     id="menuButton"
-                    class="icon-button"
+                    class="icon-button mobile-menu-button"
+                    type="button"
                     aria-label="Open menu"
                 >
                     ☰
                 </button>
 
 
-                <div class="model-selector">
+                <button
+                    class="model-selector"
+                    type="button"
+                    aria-label="Current AI model"
+                >
 
-                    <div class="model-name">
+                    <span class="model-dot"></span>
+
+                    <span class="model-name">
                         Ankul AI
-                    </div>
+                    </span>
 
-                    <div class="model-status">
+                    <span class="model-status">
                         AI Assistant
-                    </div>
+                    </span>
 
-                </div>
+                </button>
 
             </div>
 
 
-            <div class="topbar-actions">
+            <div class="topbar-right">
 
                 <button
                     id="themeButton"
                     class="icon-button"
+                    type="button"
                     aria-label="Toggle theme"
                     title="Toggle theme"
                 >
@@ -172,51 +218,53 @@ $appVersion = '1.0.0';
         </header>
 
 
-        <!-- ================= CHAT ================= -->
+        <!-- =================================================
+             CONTENT
+             ================================================= -->
 
         <section
             id="chatContainer"
-            class="chat-container"
+            class="content"
         >
 
-            <!-- WELCOME SCREEN -->
+
+            <!-- =============================================
+                 WELCOME SCREEN
+                 ============================================= -->
 
             <div
                 id="welcomeScreen"
-                class="welcome-screen"
+                class="welcome"
             >
 
                 <div class="hero-logo">
-                    <span>A</span>
+                    A
                 </div>
 
 
-                <div class="hero-content">
-
-                    <div class="eyebrow">
-                        PERSONAL AI ASSISTANT
-                    </div>
-
-                    <h1>
-                        Hello, I'm
-                        <span>Ankul AI</span>
-                    </h1>
-
-                    <p>
-                        Think. Create. Learn. Build.
-                        <br>
-                        Ask me anything.
-                    </p>
-
-                </div>
+                <h1>
+                    Hello, I'm Ankul AI
+                </h1>
 
 
-                <!-- SUGGESTIONS -->
+                <p class="welcome-subtitle">
+                    Think. Create. Learn. Build.
+                    <br>
+                    Your personal AI assistant for ideas,
+                    coding, learning and everyday tasks.
+                </p>
 
-                <div class="suggestions-grid">
+
+                <!-- =========================================
+                     SUGGESTION CARDS
+                     ========================================= -->
+
+                <div class="suggestions">
+
 
                     <button
                         class="suggestion-card"
+                        type="button"
                         data-prompt="Explain artificial intelligence in simple words with examples."
                     >
 
@@ -224,23 +272,20 @@ $appVersion = '1.0.0';
                             ✦
                         </div>
 
-                        <div class="suggestion-content">
+                        <strong>
+                            Explain something
+                        </strong>
 
-                            <strong>
-                                Explain something
-                            </strong>
-
-                            <span>
-                                Get a clear explanation
-                            </span>
-
-                        </div>
+                        <span>
+                            Get a clear explanation
+                        </span>
 
                     </button>
 
 
                     <button
                         class="suggestion-card"
+                        type="button"
                         data-prompt="Help me write clean, professional code and explain it."
                     >
 
@@ -248,23 +293,20 @@ $appVersion = '1.0.0';
                             &lt;/&gt;
                         </div>
 
-                        <div class="suggestion-content">
+                        <strong>
+                            Write code
+                        </strong>
 
-                            <strong>
-                                Write code
-                            </strong>
-
-                            <span>
-                                Build, debug or improve code
-                            </span>
-
-                        </div>
+                        <span>
+                            Build, debug or improve code
+                        </span>
 
                     </button>
 
 
                     <button
                         class="suggestion-card"
+                        type="button"
                         data-prompt="Analyze this idea and show me different possibilities, benefits and risks."
                     >
 
@@ -272,23 +314,20 @@ $appVersion = '1.0.0';
                             ◈
                         </div>
 
-                        <div class="suggestion-content">
+                        <strong>
+                            Analyze an idea
+                        </strong>
 
-                            <strong>
-                                Analyze an idea
-                            </strong>
-
-                            <span>
-                                Explore possibilities
-                            </span>
-
-                        </div>
+                        <span>
+                            Explore possibilities
+                        </span>
 
                     </button>
 
 
                     <button
                         class="suggestion-card"
+                        type="button"
                         data-prompt="Create a structured learning plan for me."
                     >
 
@@ -296,17 +335,13 @@ $appVersion = '1.0.0';
                             ◎
                         </div>
 
-                        <div class="suggestion-content">
+                        <strong>
+                            Help me learn
+                        </strong>
 
-                            <strong>
-                                Help me learn
-                            </strong>
-
-                            <span>
-                                Learn step by step
-                            </span>
-
-                        </div>
+                        <span>
+                            Learn step by step
+                        </span>
 
                     </button>
 
@@ -315,7 +350,9 @@ $appVersion = '1.0.0';
             </div>
 
 
-            <!-- MESSAGES -->
+            <!-- =============================================
+                 MESSAGES
+                 ============================================= -->
 
             <div
                 id="messages"
@@ -325,18 +362,20 @@ $appVersion = '1.0.0';
             </div>
 
 
-            <!-- TYPING -->
+            <!-- =============================================
+                 TYPING INDICATOR
+                 ============================================= -->
 
             <div
                 id="typingIndicator"
-                class="typing-indicator hidden"
+                class="typing-indicator"
             >
 
-                <div class="ai-avatar">
+                <div class="typing-avatar">
                     A
                 </div>
 
-                <div class="typing-content">
+                <div class="typing-dots">
 
                     <span></span>
                     <span></span>
@@ -346,12 +385,16 @@ $appVersion = '1.0.0';
 
             </div>
 
+
         </section>
 
 
-        <!-- ================= COMPOSER ================= -->
+        <!-- =================================================
+             COMPOSER
+             ================================================= -->
 
-        <div class="composer-area">
+        <div class="composer-wrap">
+
 
             <form
                 id="chatForm"
@@ -359,11 +402,13 @@ $appVersion = '1.0.0';
                 autocomplete="off"
             >
 
+
                 <button
                     type="button"
                     id="attachButton"
                     class="composer-button"
                     title="Attach"
+                    aria-label="Attach file"
                 >
                     ＋
                 </button>
@@ -384,6 +429,7 @@ $appVersion = '1.0.0';
                     id="voiceButton"
                     class="composer-button voice-button"
                     title="Voice input"
+                    aria-label="Voice input"
                 >
                     🎙
                 </button>
@@ -392,56 +438,75 @@ $appVersion = '1.0.0';
                 <button
                     type="submit"
                     id="sendButton"
-                    class="send-button"
+                    class="composer-button send-button"
                     disabled
                     title="Send"
+                    aria-label="Send message"
                 >
                     ↑
                 </button>
 
+
             </form>
 
 
-            <div class="composer-footer">
+            <div class="composer-hint">
 
-                <span>
-                    Ankul AI may make mistakes. Verify important information.
-                </span>
+                Ankul AI may make mistakes.
+                Verify important information.
 
-                <span>
-                    Enter to send · Shift + Enter for new line
-                </span>
+                <br>
+
+                Enter to send · Shift + Enter for new line
 
             </div>
 
+
         </div>
+
 
     </main>
 
 </div>
 
 
-<!-- ================= SETTINGS MODAL ================= -->
+<!-- =========================================================
+     SIDEBAR MOBILE OVERLAY
+     ========================================================= -->
+
+<div
+    id="sidebarOverlay"
+    class="sidebar-overlay"
+></div>
+
+
+<!-- =========================================================
+     SETTINGS MODAL
+     ========================================================= -->
 
 <div
     id="settingsModal"
-    class="modal hidden"
+    class="modal-backdrop"
 >
 
-    <div class="modal-backdrop"></div>
-
-    <div class="modal-card">
+    <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settingsTitle"
+    >
 
         <div class="modal-header">
 
-            <div>
-                <h2>Settings</h2>
-                <p>Customize your Ankul AI experience.</p>
-            </div>
+            <h2 id="settingsTitle">
+                Settings
+            </h2>
 
             <button
                 id="closeSettings"
-                class="icon-button"
+                class="modal-close"
+                type="button"
+                aria-label="Close settings"
             >
                 ×
             </button>
@@ -449,26 +514,32 @@ $appVersion = '1.0.0';
         </div>
 
 
+        <!-- Appearance -->
+
         <div class="settings-group">
 
-            <label>
+            <div class="settings-title">
                 Appearance
-            </label>
+            </div>
+
 
             <div class="theme-options">
 
                 <button
+                    type="button"
                     data-theme="dark"
-                    class="theme-option active"
+                    class="theme-button active"
                 >
-                    Dark
+                    🌙 Dark
                 </button>
 
+
                 <button
+                    type="button"
                     data-theme="light"
-                    class="theme-option"
+                    class="theme-button"
                 >
-                    Light
+                    ☀️ Light
                 </button>
 
             </div>
@@ -476,96 +547,178 @@ $appVersion = '1.0.0';
         </div>
 
 
+        <!-- Chat Settings -->
+
         <div class="settings-group">
 
-            <label class="switch-row">
+            <div class="settings-title">
+                Chat
+            </div>
 
-                <span>
-                    Enter to send
-                </span>
 
-                <input
-                    type="checkbox"
+            <div class="setting-row">
+
+                <div class="setting-info">
+
+                    <strong>
+                        Enter to send
+                    </strong>
+
+                    <span>
+                        Press Enter to send your message.
+                    </span>
+
+                </div>
+
+
+                <button
                     id="enterToSend"
-                    checked
-                >
+                    class="toggle active"
+                    type="button"
+                    aria-label="Enter to send"
+                    aria-pressed="true"
+                ></button>
 
-            </label>
-
-        </div>
+            </div>
 
 
-        <div class="settings-group">
+            <div class="setting-row">
 
-            <label class="switch-row">
+                <div class="setting-info">
 
-                <span>
-                    Show timestamps
-                </span>
+                    <strong>
+                        Show timestamps
+                    </strong>
 
-                <input
-                    type="checkbox"
+                    <span>
+                        Display time on messages.
+                    </span>
+
+                </div>
+
+
+                <button
                     id="showTimestamps"
-                >
+                    class="toggle"
+                    type="button"
+                    aria-label="Show timestamps"
+                    aria-pressed="false"
+                ></button>
 
-            </label>
+            </div>
 
         </div>
+
 
     </div>
 
 </div>
 
 
-<!-- ================= ABOUT MODAL ================= -->
+<!-- =========================================================
+     ABOUT MODAL
+     ========================================================= -->
 
 <div
     id="aboutModal"
-    class="modal hidden"
+    class="modal-backdrop"
 >
 
-    <div class="modal-backdrop"></div>
+    <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aboutTitle"
+    >
 
-    <div class="modal-card about-card">
+        <div class="modal-header">
 
-        <div class="hero-logo small">
-            A
+            <h2 id="aboutTitle">
+                About Ankul AI
+            </h2>
+
+            <button
+                id="closeAbout"
+                class="modal-close"
+                type="button"
+                aria-label="Close about"
+            >
+                ×
+            </button>
+
         </div>
 
-        <h2>
-            Ankul AI
-        </h2>
 
-        <p>
-            A personal AI assistant built for
-            conversation, learning and creation.
-        </p>
+        <div class="about-content">
 
-        <div class="version">
-            Version <?= htmlspecialchars($appVersion) ?>
+            <div class="about-logo">
+                A
+            </div>
+
+
+            <h3>
+                Ankul AI
+            </h3>
+
+
+            <p>
+                A modern personal AI assistant built for
+                conversation, learning, coding and creation.
+            </p>
+
+
+            <div class="about-meta">
+
+                <div>
+
+                    <strong>
+                        Developer
+                    </strong>
+
+                    <span>
+                        Ankul Kumar Mishra
+                    </span>
+
+                </div>
+
+
+                <div>
+
+                    <strong>
+                        Version
+                    </strong>
+
+                    <span>
+                        <?= htmlspecialchars($appVersion) ?>
+                    </span>
+
+                </div>
+
+            </div>
+
         </div>
-
-        <button
-            id="closeAbout"
-            class="primary-button"
-        >
-            Close
-        </button>
 
     </div>
 
 </div>
 
 
-<!-- TOAST -->
+<!-- =========================================================
+     TOAST
+     ========================================================= -->
 
 <div
     id="toast"
     class="toast"
     role="status"
+    aria-live="polite"
 >
 </div>
 
+
+<!-- =========================================================
+     JAVASCRIPT
+     ========================================================= -->
 
 <script src="assets/app.js"></script>
 
