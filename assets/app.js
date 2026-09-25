@@ -1,7 +1,7 @@
 "use strict";
 
 /* =====================================================
-   ANKUL AI
+   ANKUL AI - APP.JS
    ===================================================== */
 
 const state = {
@@ -42,7 +42,7 @@ const sendButton = $("#sendButton");
 const messages = $("#messages");
 const welcomeScreen = $("#welcomeScreen");
 const typingIndicator = $("#typingIndicator");
-const chatContainer = $("#chatContainer");
+const chatArea = $("#chatArea");
 
 const sidebar = $("#sidebar");
 const sidebarOverlay = $("#sidebarOverlay");
@@ -72,6 +72,7 @@ document.addEventListener(
         restoreSettings();
 
         updateSendButton();
+
     }
 );
 
@@ -135,11 +136,12 @@ function setupInput() {
 
         }
     );
+
 }
 
 
 /* =====================================================
-   RESIZE TEXTAREA
+   TEXTAREA RESIZE
    ===================================================== */
 
 function autoResize() {
@@ -155,6 +157,7 @@ function autoResize() {
             messageInput.scrollHeight,
             150
         ) + "px";
+
 }
 
 
@@ -174,6 +177,7 @@ function updateSendButton() {
     sendButton.disabled =
         !hasText ||
         state.isLoading;
+
 }
 
 
@@ -181,9 +185,7 @@ function updateSendButton() {
    SEND MESSAGE
    ===================================================== */
 
-async function sendMessage(
-    customPrompt = null
-) {
+async function sendMessage(customPrompt = null) {
 
     if (state.isLoading) {
         return;
@@ -192,7 +194,7 @@ async function sendMessage(
 
     const text =
         customPrompt !== null
-            ? customPrompt.trim()
+            ? String(customPrompt).trim()
             : messageInput.value.trim();
 
 
@@ -201,7 +203,7 @@ async function sendMessage(
     }
 
 
-    /* History BEFORE current message */
+    /* Save previous history BEFORE adding current message */
 
     const historyForAPI =
         state.messages
@@ -223,18 +225,20 @@ async function sendMessage(
     );
 
 
-    messageInput.value = "";
-
-    autoResize();
+    if (messageInput) {
+        messageInput.value = "";
+        autoResize();
+    }
 
     updateSendButton();
-
 
     state.isLoading = true;
 
     hideWelcome();
 
     showTyping(true);
+
+    updateSendButton();
 
     scrollToBottom();
 
@@ -264,8 +268,7 @@ async function sendMessage(
         if (!response.ok) {
 
             throw new Error(
-                "HTTP " +
-                response.status
+                "HTTP " + response.status
             );
 
         }
@@ -298,7 +301,7 @@ async function sendMessage(
     } catch (error) {
 
         console.error(
-            "Ankul AI:",
+            "Ankul AI error:",
             error
         );
 
@@ -313,7 +316,6 @@ async function sendMessage(
             "AI connection failed."
         );
 
-
     } finally {
 
         state.isLoading = false;
@@ -325,6 +327,7 @@ async function sendMessage(
         scrollToBottom();
 
     }
+
 }
 
 
@@ -332,10 +335,7 @@ async function sendMessage(
    ADD MESSAGE
    ===================================================== */
 
-function addMessage(
-    role,
-    text
-) {
+function addMessage(role, text) {
 
     const timestamp =
         new Date();
@@ -365,14 +365,10 @@ function addMessage(
 
 
     element.className =
-        "message " +
-        actualRole;
+        "message " + actualRole;
 
 
-    if (
-        actualRole ===
-        "assistant"
-    ) {
+    if (actualRole === "assistant") {
 
         element.innerHTML = `
 
@@ -390,7 +386,7 @@ function addMessage(
                             <div class="message-time">
                                 ${formatTime(timestamp)}
                             </div>
-                          `
+                        `
                         : ""
                 }
 
@@ -412,7 +408,7 @@ function addMessage(
                             <div class="message-time">
                                 ${formatTime(timestamp)}
                             </div>
-                          `
+                        `
                         : ""
                 }
 
@@ -430,6 +426,7 @@ function addMessage(
     messages.appendChild(element);
 
     scrollToBottom();
+
 }
 
 
@@ -443,9 +440,7 @@ function formatMessage(text) {
         escapeHTML(text);
 
 
-    /*
-       Code blocks
-    */
+    /* Code blocks */
 
     safe =
         safe.replace(
@@ -454,9 +449,7 @@ function formatMessage(text) {
         );
 
 
-    /*
-       Bold
-    */
+    /* Bold */
 
     safe =
         safe.replace(
@@ -465,9 +458,7 @@ function formatMessage(text) {
         );
 
 
-    /*
-       Inline code
-    */
+    /* Inline code */
 
     safe =
         safe.replace(
@@ -476,9 +467,7 @@ function formatMessage(text) {
         );
 
 
-    /*
-       New lines
-    */
+    /* New lines */
 
     safe =
         safe.replace(
@@ -488,6 +477,7 @@ function formatMessage(text) {
 
 
     return safe;
+
 }
 
 
@@ -498,26 +488,12 @@ function formatMessage(text) {
 function escapeHTML(value) {
 
     return String(value)
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
 }
 
 
@@ -534,6 +510,7 @@ function formatTime(date) {
             minute: "2-digit"
         }
     );
+
 }
 
 
@@ -549,6 +526,7 @@ function hideWelcome() {
 
     welcomeScreen.style.display =
         "none";
+
 }
 
 
@@ -560,11 +538,12 @@ function showWelcome() {
 
     welcomeScreen.style.display =
         "flex";
+
 }
 
 
 /* =====================================================
-   SUGGESTION CARDS
+   SUGGESTIONS
    ===================================================== */
 
 function setupSuggestions() {
@@ -584,15 +563,14 @@ function setupSuggestions() {
                             return;
                         }
 
-                        sendMessage(
-                            prompt
-                        );
+                        sendMessage(prompt);
 
                     }
                 );
 
             }
         );
+
 }
 
 
@@ -605,6 +583,10 @@ function showTyping(show) {
     if (!typingIndicator) {
         return;
     }
+
+
+    typingIndicator.hidden =
+        !show;
 
 
     typingIndicator.classList.toggle(
@@ -621,7 +603,7 @@ function showTyping(show) {
 
 function scrollToBottom() {
 
-    if (!chatContainer) {
+    if (!chatArea) {
         return;
     }
 
@@ -629,9 +611,9 @@ function scrollToBottom() {
     requestAnimationFrame(
         () => {
 
-            chatContainer.scrollTo({
+            chatArea.scrollTo({
                 top:
-                    chatContainer.scrollHeight,
+                    chatArea.scrollHeight,
 
                 behavior:
                     "smooth"
@@ -639,6 +621,7 @@ function scrollToBottom() {
 
         }
     );
+
 }
 
 
@@ -693,6 +676,7 @@ function setupNewChat() {
 
             }
         );
+
 }
 
 
@@ -721,6 +705,7 @@ function setupSidebar() {
             "click",
             closeSidebar
         );
+
 }
 
 
@@ -733,6 +718,7 @@ function openSidebar() {
     sidebarOverlay?.classList.add(
         "active"
     );
+
 }
 
 
@@ -745,6 +731,7 @@ function closeSidebar() {
     sidebarOverlay?.classList.remove(
         "active"
     );
+
 }
 
 
@@ -787,6 +774,7 @@ function setupTheme() {
 
             }
         );
+
 }
 
 
@@ -822,6 +810,7 @@ function applyTheme(theme) {
 
             }
         );
+
 }
 
 
@@ -838,14 +827,16 @@ function setupModals() {
         $("#aboutModal");
 
 
+    /* Open Settings */
+
     $("#settingsButton")
         ?.addEventListener(
             "click",
             () => {
 
-                settingsModal
-                    ?.classList
-                    .remove("hidden");
+                openModal(
+                    settingsModal
+                );
 
                 closeSidebar();
 
@@ -853,21 +844,16 @@ function setupModals() {
         );
 
 
-    $("#closeSettings")
-        ?.addEventListener(
-            "click",
-            closeSettings
-        );
-
+    /* Open About */
 
     $("#aboutButton")
         ?.addEventListener(
             "click",
             () => {
 
-                aboutModal
-                    ?.classList
-                    .remove("hidden");
+                openModal(
+                    aboutModal
+                );
 
                 closeSidebar();
 
@@ -875,12 +861,36 @@ function setupModals() {
         );
 
 
-    $("#closeAbout")
-        ?.addEventListener(
-            "click",
-            closeAbout
+    /* Close buttons */
+
+    $$("[data-close-modal]")
+        .forEach(
+            (button) => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        const modalId =
+                            button.getAttribute(
+                                "data-close-modal"
+                            );
+
+                        const modal =
+                            document.getElementById(
+                                modalId
+                            );
+
+                        closeModal(modal);
+
+                    }
+                );
+
+            }
         );
 
+
+    /* Click outside */
 
     [
         settingsModal,
@@ -893,12 +903,11 @@ function setupModals() {
                 (event) => {
 
                     if (
-                        event.target ===
-                        modal
+                        event.target === modal
                     ) {
 
-                        modal.classList.add(
-                            "hidden"
+                        closeModal(
+                            modal
                         );
 
                     }
@@ -910,7 +919,35 @@ function setupModals() {
     );
 
 
-    $("#enterToSend")
+    /* Escape */
+
+    document.addEventListener(
+        "keydown",
+        (event) => {
+
+            if (
+                event.key === "Escape"
+            ) {
+
+                closeModal(
+                    settingsModal
+                );
+
+                closeModal(
+                    aboutModal
+                );
+
+                closeSidebar();
+
+            }
+
+        }
+    );
+
+
+    /* Enter to send */
+
+    $("#enterSendSwitch")
         ?.addEventListener(
             "click",
             (event) => {
@@ -927,14 +964,18 @@ function setupModals() {
 
                 localStorage.setItem(
                     "ankul_enter_send",
-                    state.enterToSend
+                    String(
+                        state.enterToSend
+                    )
                 );
 
             }
         );
 
 
-    $("#showTimestamps")
+    /* Timestamps */
+
+    $("#timestampSwitch")
         ?.addEventListener(
             "click",
             (event) => {
@@ -951,7 +992,9 @@ function setupModals() {
 
                 localStorage.setItem(
                     "ankul_timestamps",
-                    state.showTimestamps
+                    String(
+                        state.showTimestamps
+                    )
                 );
 
 
@@ -961,41 +1004,102 @@ function setupModals() {
         );
 
 
-    document.addEventListener(
-        "keydown",
-        (event) => {
+    /* Dark mode switch */
 
-            if (
-                event.key ===
-                "Escape"
-            ) {
+    $("#darkModeSwitch")
+        ?.addEventListener(
+            "click",
+            (event) => {
 
-                closeSettings();
+                const next =
+                    state.theme === "dark"
+                        ? "light"
+                        : "dark";
 
-                closeAbout();
+                applyTheme(next);
 
-                closeSidebar();
+                updateToggle(
+                    event.currentTarget,
+                    next === "dark"
+                );
 
             }
+        );
 
-        }
-    );
 }
 
+
+/* =====================================================
+   OPEN MODAL
+   ===================================================== */
+
+function openModal(modal) {
+
+    if (!modal) {
+        return;
+    }
+
+
+    modal.hidden = false;
+
+    modal.classList.add(
+        "active"
+    );
+
+    document.body.classList.add(
+        "modal-open"
+    );
+
+}
+
+
+/* =====================================================
+   CLOSE MODAL
+   ===================================================== */
+
+function closeModal(modal) {
+
+    if (!modal) {
+        return;
+    }
+
+
+    modal.hidden = true;
+
+    modal.classList.remove(
+        "active"
+    );
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+
+}
+
+
+/* =====================================================
+   CLOSE SETTINGS
+   ===================================================== */
 
 function closeSettings() {
 
-    $("#settingsModal")
-        ?.classList
-        .add("hidden");
+    closeModal(
+        $("#settingsModal")
+    );
+
 }
 
 
+/* =====================================================
+   CLOSE ABOUT
+   ===================================================== */
+
 function closeAbout() {
 
-    $("#aboutModal")
-        ?.classList
-        .add("hidden");
+    closeModal(
+        $("#aboutModal")
+    );
+
 }
 
 
@@ -1023,6 +1127,7 @@ function updateToggle(
         "aria-pressed",
         String(active)
     );
+
 }
 
 
@@ -1033,149 +1138,23 @@ function updateToggle(
 function restoreSettings() {
 
     updateToggle(
-        $("#enterToSend"),
+        $("#darkModeSwitch"),
+        state.theme === "dark"
+    );
+
+
+    updateToggle(
+        $("#enterSendSwitch"),
         state.enterToSend
     );
 
 
     updateToggle(
-        $("#showTimestamps"),
+        $("#timestampSwitch"),
         state.showTimestamps
     );
+
 }
 
 
-/* =====================================================
-   RERENDER
-   ===================================================== */
-
-function rerenderMessages() {
-
-    if (!messages) {
-        return;
-    }
-
-
-    messages.innerHTML = "";
-
-
-    const saved =
-        [...state.messages];
-
-
-    state.messages = [];
-
-
-    saved.forEach(
-        (item) => {
-
-            addMessage(
-                item.role,
-                item.content
-            );
-
-        }
-    );
-}
-
-
-/* =====================================================
-   VOICE
-   ===================================================== */
-
-function setupVoice() {
-
-    const button =
-        $("#voiceButton");
-
-
-    if (!button) {
-        return;
-    }
-
-
-    const SpeechRecognition =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition;
-
-
-    if (!SpeechRecognition) {
-
-        button.title =
-            "Voice input is not supported by this browser.";
-
-        return;
-    }
-
-
-    const recognition =
-        new SpeechRecognition();
-
-
-    recognition.lang =
-        "en-IN";
-
-    recognition.interimResults =
-        true;
-
-    recognition.continuous =
-        false;
-
-
-    recognition.onstart =
-        () => {
-
-            state.isListening =
-                true;
-
-
-            button.classList.add(
-                "listening"
-            );
-
-
-            showToast(
-                "Listening..."
-            );
-
-        };
-
-
-    recognition.onresult =
-        (event) => {
-
-            let transcript = "";
-
-
-            for (
-                let i =
-                    event.resultIndex;
-
-                i <
-                    event.results.length;
-
-                i++
-            ) {
-
-                transcript +=
-                    event.results[i][0]
-                        .transcript;
-
-            }
-
-
-            if (messageInput) {
-
-                messageInput.value =
-                    transcript;
-
-                autoResize();
-
-                updateSendButton();
-
-            }
-
-        };
-
-
-    
+/* ===============================
