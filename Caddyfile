@@ -1,9 +1,10 @@
 :{$PORT:80} {
+
     root * /app
 
     encode zstd gzip
 
-    file_server
-
     php_server
+
+    file_server
 }
