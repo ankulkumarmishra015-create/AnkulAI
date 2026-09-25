@@ -1,22 +1,31 @@
 "use strict";
 
 /* =====================================================
-   ANKUL AI - APP.JS
+   ANKUL AI - COMPLETE APP
    ===================================================== */
 
 const state = {
+
     messages: [],
+
     isLoading: false,
+
     isListening: false,
 
+    selectedModel:
+        localStorage.getItem("ankul_model") ||
+        "gemini-3.8-flash",
+
     theme:
-        localStorage.getItem("ankul_theme") || "dark",
+        localStorage.getItem("ankul_theme") ||
+        "dark",
 
     enterToSend:
         localStorage.getItem("ankul_enter_send") !== "false",
 
-    showTimestamps:
+    timestamps:
         localStorage.getItem("ankul_timestamps") === "true"
+
 };
 
 
@@ -35,19 +44,41 @@ const $$ = (selector) =>
    ELEMENTS
    ===================================================== */
 
-const chatForm = $("#chatForm");
-const messageInput = $("#messageInput");
-const sendButton = $("#sendButton");
+const chatForm =
+    $("#chatForm");
 
-const messages = $("#messages");
-const welcomeScreen = $("#welcomeScreen");
-const typingIndicator = $("#typingIndicator");
-const chatArea = $("#chatArea");
+const messageInput =
+    $("#messageInput");
 
-const sidebar = $("#sidebar");
-const sidebarOverlay = $("#sidebarOverlay");
+const sendButton =
+    $("#sendButton");
 
-const toast = $("#toast");
+const messages =
+    $("#messages");
+
+const welcomeScreen =
+    $("#welcomeScreen");
+
+const typingIndicator =
+    $("#typingIndicator");
+
+const chatArea =
+    $("#chatArea");
+
+const sidebar =
+    $("#sidebar");
+
+const sidebarOverlay =
+    $("#sidebarOverlay");
+
+const toast =
+    $("#toast");
+
+const historyList =
+    $("#historyList");
+
+const fileInput =
+    $("#fileInput");
 
 
 /* =====================================================
@@ -58,18 +89,37 @@ document.addEventListener(
     "DOMContentLoaded",
     () => {
 
-        applyTheme(state.theme);
+        applyTheme(
+            state.theme
+        );
 
         setupInput();
+
         setupSuggestions();
+
         setupSidebar();
+
         setupTheme();
+
         setupModals();
+
         setupVoice();
-        setupAttach();
+
+        setupAttachment();
+
         setupNewChat();
 
+        setupModelSelector();
+
+        setupNavigation();
+
+        setupSearch();
+
+        setupClearChats();
+
         restoreSettings();
+
+        renderHistory();
 
         updateSendButton();
 
@@ -83,7 +133,7 @@ document.addEventListener(
 
 function setupInput() {
 
-    if (!messageInput || !chatForm) {
+    if (!chatForm || !messageInput) {
         return;
     }
 
@@ -93,6 +143,7 @@ function setupInput() {
         () => {
 
             autoResize();
+
             updateSendButton();
 
         }
@@ -141,7 +192,7 @@ function setupInput() {
 
 
 /* =====================================================
-   TEXTAREA RESIZE
+   RESIZE
    ===================================================== */
 
 function autoResize() {
@@ -150,12 +201,13 @@ function autoResize() {
         return;
     }
 
-    messageInput.style.height = "auto";
+    messageInput.style.height =
+        "auto";
 
     messageInput.style.height =
         Math.min(
             messageInput.scrollHeight,
-            150
+            130
         ) + "px";
 
 }
@@ -171,12 +223,9 @@ function updateSendButton() {
         return;
     }
 
-    const hasText =
-        messageInput.value.trim().length > 0;
-
     sendButton.disabled =
-        !hasText ||
-        state.isLoading;
+        state.isLoading ||
+        !messageInput.value.trim();
 
 }
 
@@ -185,7 +234,9 @@ function updateSendButton() {
    SEND MESSAGE
    ===================================================== */
 
-async function sendMessage(customPrompt = null) {
+async function sendMessage(
+    customPrompt = null
+) {
 
     if (state.isLoading) {
         return;
@@ -203,20 +254,20 @@ async function sendMessage(customPrompt = null) {
     }
 
 
-    /* Save previous history BEFORE adding current message */
-
-    const historyForAPI =
+    const previousHistory =
         state.messages
             .slice(-12)
-            .map((item) => ({
-                role:
-                    item.role === "assistant"
-                        ? "assistant"
-                        : "user",
+            .map(
+                (item) => ({
+                    role:
+                        item.role === "assistant"
+                            ? "assistant"
+                            : "user",
 
-                content:
-                    item.content
-            }));
+                    content:
+                        item.content
+                })
+            );
 
 
     addMessage(
@@ -225,20 +276,17 @@ async function sendMessage(customPrompt = null) {
     );
 
 
-    if (messageInput) {
-        messageInput.value = "";
-        autoResize();
-    }
+    messageInput.value = "";
+
+    autoResize();
 
     updateSendButton();
-
-    state.isLoading = true;
 
     hideWelcome();
 
-    showTyping(true);
+    state.isLoading = true;
 
-    updateSendButton();
+    showTyping(true);
 
     scrollToBottom();
 
@@ -256,11 +304,13 @@ async function sendMessage(customPrompt = null) {
                             "application/json"
                     },
 
-                    body: JSON.stringify({
-                        message: text,
-                        history:
-                            historyForAPI
-                    })
+                    body:
+                        JSON.stringify({
+                            message: text,
+
+                            history:
+                                previousHistory
+                        })
                 }
             );
 
@@ -268,7 +318,8 @@ async function sendMessage(customPrompt = null) {
         if (!response.ok) {
 
             throw new Error(
-                "HTTP " + response.status
+                "HTTP " +
+                response.status
             );
 
         }
@@ -285,7 +336,7 @@ async function sendMessage(customPrompt = null) {
 
             throw new Error(
                 data?.error ||
-                "AI response failed."
+                "AI response failed"
             );
 
         }
@@ -298,17 +349,20 @@ async function sendMessage(customPrompt = null) {
         );
 
 
+        saveConversation();
+
+
     } catch (error) {
 
         console.error(
-            "Ankul AI error:",
+            "Ankul AI:",
             error
         );
 
 
         addMessage(
             "assistant",
-            "Sorry, I couldn't connect to Ankul AI right now. Please check the server/API configuration."
+            "Sorry, I couldn't connect to Ankul AI right now. Please check your server/API configuration."
         );
 
 
@@ -318,9 +372,12 @@ async function sendMessage(customPrompt = null) {
 
     } finally {
 
-        state.isLoading = false;
+        state.isLoading =
+            false;
 
-        showTyping(false);
+        showTyping(
+            false
+        );
 
         updateSendButton();
 
@@ -335,18 +392,34 @@ async function sendMessage(customPrompt = null) {
    ADD MESSAGE
    ===================================================== */
 
-function addMessage(role, text) {
+function addMessage(
+    role,
+    content,
+    options = {}
+) {
 
-    const timestamp =
-        new Date();
+    const time =
+        options.timestamp
+            ? new Date(options.timestamp)
+            : new Date();
 
 
-    state.messages.push({
-        role: role,
-        content: String(text),
+    const item = {
+
+        role,
+
+        content:
+            String(content),
+
         timestamp:
-            timestamp.toISOString()
-    });
+            time.toISOString()
+
+    };
+
+
+    state.messages.push(
+        item
+    );
 
 
     if (!messages) {
@@ -355,75 +428,55 @@ function addMessage(role, text) {
 
 
     const element =
-        document.createElement("div");
-
-
-    const actualRole =
-        role === "user"
-            ? "user"
-            : "assistant";
+        document.createElement(
+            "div"
+        );
 
 
     element.className =
-        "message " + actualRole;
+        "message " +
+        (
+            role === "user"
+                ? "user"
+                : "assistant"
+        );
 
 
-    if (actualRole === "assistant") {
-
-        element.innerHTML = `
-
-            <div class="message-avatar">
-                A
-            </div>
-
-            <div class="message-body">
-
-                ${formatMessage(text)}
-
-                ${
-                    state.showTimestamps
-                        ? `
-                            <div class="message-time">
-                                ${formatTime(timestamp)}
-                            </div>
-                        `
-                        : ""
-                }
-
-            </div>
-
-        `;
-
-    } else {
-
-        element.innerHTML = `
-
-            <div class="message-body">
-
-                ${escapeHTML(text)}
-
-                ${
-                    state.showTimestamps
-                        ? `
-                            <div class="message-time">
-                                ${formatTime(timestamp)}
-                            </div>
-                        `
-                        : ""
-                }
-
-            </div>
-
-            <div class="message-avatar">
-                A
-            </div>
-
-        `;
-
-    }
+    const timeHTML =
+        state.timestamps
+            ? `
+                <div class="message-time">
+                    ${formatTime(time)}
+                </div>
+            `
+            : "";
 
 
-    messages.appendChild(element);
+    element.innerHTML = `
+
+        <div class="message-avatar">
+            ${role === "assistant" ? "A" : "U"}
+        </div>
+
+        <div class="message-body">
+
+            ${
+                role === "assistant"
+                    ? formatMessage(content)
+                    : escapeHTML(content)
+            }
+
+            ${timeHTML}
+
+        </div>
+
+    `;
+
+
+    messages.appendChild(
+        element
+    );
+
 
     scrollToBottom();
 
@@ -431,7 +484,7 @@ function addMessage(role, text) {
 
 
 /* =====================================================
-   FORMAT AI MESSAGE
+   FORMAT AI RESPONSE
    ===================================================== */
 
 function formatMessage(text) {
@@ -440,16 +493,12 @@ function formatMessage(text) {
         escapeHTML(text);
 
 
-    /* Code blocks */
-
     safe =
         safe.replace(
             /```([\s\S]*?)```/g,
             "<pre><code>$1</code></pre>"
         );
 
-
-    /* Bold */
 
     safe =
         safe.replace(
@@ -458,16 +507,12 @@ function formatMessage(text) {
         );
 
 
-    /* Inline code */
-
     safe =
         safe.replace(
             /`([^`]+)`/g,
             "<code>$1</code>"
         );
 
-
-    /* New lines */
 
     safe =
         safe.replace(
@@ -482,17 +527,37 @@ function formatMessage(text) {
 
 
 /* =====================================================
-   ESCAPE HTML
+   ESCAPE
    ===================================================== */
 
 function escapeHTML(value) {
 
     return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
 
 }
 
@@ -501,7 +566,9 @@ function escapeHTML(value) {
    TIME
    ===================================================== */
 
-function formatTime(date) {
+function formatTime(
+    date
+) {
 
     return date.toLocaleTimeString(
         [],
@@ -543,12 +610,12 @@ function showWelcome() {
 
 
 /* =====================================================
-   SUGGESTIONS
+   PROMPT CARDS
    ===================================================== */
 
 function setupSuggestions() {
 
-    $$(".suggestion-card")
+    $$(".prompt-card")
         .forEach(
             (button) => {
 
@@ -559,11 +626,11 @@ function setupSuggestions() {
                         const prompt =
                             button.dataset.prompt;
 
-                        if (!prompt) {
-                            return;
+                        if (prompt) {
+                            sendMessage(
+                                prompt
+                            );
                         }
-
-                        sendMessage(prompt);
 
                     }
                 );
@@ -578,7 +645,9 @@ function setupSuggestions() {
    TYPING
    ===================================================== */
 
-function showTyping(show) {
+function showTyping(
+    show
+) {
 
     if (!typingIndicator) {
         return;
@@ -587,12 +656,6 @@ function showTyping(show) {
 
     typingIndicator.hidden =
         !show;
-
-
-    typingIndicator.classList.toggle(
-        "hidden",
-        !show
-    );
 
 }
 
@@ -631,51 +694,59 @@ function scrollToBottom() {
 
 function setupNewChat() {
 
-    $("#newChatButton")
-        ?.addEventListener(
-            "click",
-            () => {
+    [
+        $("#newChatButton"),
+        $("#quickNewChat")
+    ]
+        .forEach(
+            (button) => {
 
-                if (state.isLoading) {
-
-                    showToast(
-                        "Please wait for the current response."
-                    );
-
-                    return;
-                }
-
-
-                state.messages = [];
-
-
-                if (messages) {
-                    messages.innerHTML = "";
-                }
-
-
-                showWelcome();
-
-
-                if (messageInput) {
-
-                    messageInput.value = "";
-
-                    autoResize();
-
-                }
-
-
-                updateSendButton();
-
-                closeSidebar();
-
-                showToast(
-                    "New chat started."
+                button?.addEventListener(
+                    "click",
+                    newChat
                 );
 
             }
         );
+
+}
+
+
+function newChat() {
+
+    if (state.isLoading) {
+
+        showToast(
+            "Please wait for the current response."
+        );
+
+        return;
+    }
+
+
+    state.messages = [];
+
+
+    if (messages) {
+        messages.innerHTML = "";
+    }
+
+
+    showWelcome();
+
+    messageInput.value = "";
+
+    autoResize();
+
+    updateSendButton();
+
+    closeSidebar();
+
+    saveHistory();
+
+    showToast(
+        "New chat started."
+    );
 
 }
 
@@ -736,6 +807,105 @@ function closeSidebar() {
 
 
 /* =====================================================
+   MODEL SELECTOR
+   ===================================================== */
+
+function setupModelSelector() {
+
+    const button =
+        $("#modelButton");
+
+    const menu =
+        $("#modelMenu");
+
+
+    if (!button || !menu) {
+        return;
+    }
+
+
+    button.addEventListener(
+        "click",
+        (event) => {
+
+            event.stopPropagation();
+
+            menu.classList.toggle(
+                "open"
+            );
+
+        }
+    );
+
+
+    $$(".model-option")
+        .forEach(
+            (option) => {
+
+                option.addEventListener(
+                    "click",
+                    () => {
+
+                        state.selectedModel =
+                            option.dataset.model;
+
+                        localStorage.setItem(
+                            "ankul_model",
+                            state.selectedModel
+                        );
+
+
+                        const name =
+                            option.querySelector(
+                                "span"
+                            )?.textContent ||
+                            "Auto";
+
+
+                        $("#selectedModel")
+                            .textContent =
+                            name;
+
+
+                        $$(".model-option")
+                            .forEach(
+                                (item) => {
+
+                                    item.classList.toggle(
+                                        "active",
+                                        item === option
+                                    );
+
+                                }
+                            );
+
+
+                        menu.classList.remove(
+                            "open"
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+    document.addEventListener(
+        "click",
+        () => {
+
+            menu.classList.remove(
+                "open"
+            );
+
+        }
+    );
+
+}
+
+
+/* =====================================================
    THEME
    ===================================================== */
 
@@ -746,31 +916,28 @@ function setupTheme() {
             "click",
             () => {
 
-                const next =
+                applyTheme(
                     state.theme === "dark"
                         ? "light"
-                        : "dark";
-
-                applyTheme(next);
+                        : "dark"
+                );
 
             }
         );
 
 
-    $$(".theme-button")
-        .forEach(
-            (button) => {
+    $("#darkModeSwitch")
+        ?.addEventListener(
+            "click",
+            () => {
 
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        applyTheme(
-                            button.dataset.theme
-                        );
-
-                    }
+                applyTheme(
+                    state.theme === "dark"
+                        ? "light"
+                        : "dark"
                 );
+
+                restoreSettings();
 
             }
         );
@@ -778,7 +945,9 @@ function setupTheme() {
 }
 
 
-function applyTheme(theme) {
+function applyTheme(
+    theme
+) {
 
     state.theme =
         theme === "light"
@@ -797,20 +966,6 @@ function applyTheme(theme) {
         state.theme
     );
 
-
-    $$(".theme-button")
-        .forEach(
-            (button) => {
-
-                button.classList.toggle(
-                    "active",
-                    button.dataset.theme ===
-                        state.theme
-                );
-
-            }
-        );
-
 }
 
 
@@ -820,22 +975,13 @@ function applyTheme(theme) {
 
 function setupModals() {
 
-    const settingsModal =
-        $("#settingsModal");
-
-    const aboutModal =
-        $("#aboutModal");
-
-
-    /* Open Settings */
-
     $("#settingsButton")
         ?.addEventListener(
             "click",
             () => {
 
                 openModal(
-                    settingsModal
+                    $("#settingsModal")
                 );
 
                 closeSidebar();
@@ -843,8 +989,6 @@ function setupModals() {
             }
         );
 
-
-    /* Open About */
 
     $("#aboutButton")
         ?.addEventListener(
@@ -852,7 +996,7 @@ function setupModals() {
             () => {
 
                 openModal(
-                    aboutModal
+                    $("#aboutModal")
                 );
 
                 closeSidebar();
@@ -860,8 +1004,6 @@ function setupModals() {
             }
         );
 
-
-    /* Close buttons */
 
     $$("[data-close-modal]")
         .forEach(
@@ -871,17 +1013,16 @@ function setupModals() {
                     "click",
                     () => {
 
-                        const modalId =
+                        const id =
                             button.getAttribute(
                                 "data-close-modal"
                             );
 
-                        const modal =
+                        closeModal(
                             document.getElementById(
-                                modalId
-                            );
-
-                        closeModal(modal);
+                                id
+                            )
+                        );
 
                     }
                 );
@@ -890,36 +1031,30 @@ function setupModals() {
         );
 
 
-    /* Click outside */
+    $$(".modal-backdrop")
+        .forEach(
+            (modal) => {
 
-    [
-        settingsModal,
-        aboutModal
-    ].forEach(
-        (modal) => {
+                modal.addEventListener(
+                    "click",
+                    (event) => {
 
-            modal?.addEventListener(
-                "click",
-                (event) => {
+                        if (
+                            event.target === modal
+                        ) {
 
-                    if (
-                        event.target === modal
-                    ) {
+                            closeModal(
+                                modal
+                            );
 
-                        closeModal(
-                            modal
-                        );
+                        }
 
                     }
+                );
 
-                }
-            );
+            }
+        );
 
-        }
-    );
-
-
-    /* Escape */
 
     document.addEventListener(
         "keydown",
@@ -929,13 +1064,10 @@ function setupModals() {
                 event.key === "Escape"
             ) {
 
-                closeModal(
-                    settingsModal
-                );
-
-                closeModal(
-                    aboutModal
-                );
+                $$(".modal-backdrop")
+                    .forEach(
+                        closeModal
+                    );
 
                 closeSidebar();
 
@@ -945,22 +1077,13 @@ function setupModals() {
     );
 
 
-    /* Enter to send */
-
     $("#enterSendSwitch")
         ?.addEventListener(
             "click",
-            (event) => {
+            () => {
 
                 state.enterToSend =
                     !state.enterToSend;
-
-
-                updateToggle(
-                    event.currentTarget,
-                    state.enterToSend
-                );
-
 
                 localStorage.setItem(
                     "ankul_enter_send",
@@ -969,59 +1092,30 @@ function setupModals() {
                     )
                 );
 
+                restoreSettings();
+
             }
         );
 
-
-    /* Timestamps */
 
     $("#timestampSwitch")
         ?.addEventListener(
             "click",
-            (event) => {
+            () => {
 
-                state.showTimestamps =
-                    !state.showTimestamps;
-
-
-                updateToggle(
-                    event.currentTarget,
-                    state.showTimestamps
-                );
-
+                state.timestamps =
+                    !state.timestamps;
 
                 localStorage.setItem(
                     "ankul_timestamps",
                     String(
-                        state.showTimestamps
+                        state.timestamps
                     )
                 );
 
-
                 rerenderMessages();
 
-            }
-        );
-
-
-    /* Dark mode switch */
-
-    $("#darkModeSwitch")
-        ?.addEventListener(
-            "click",
-            (event) => {
-
-                const next =
-                    state.theme === "dark"
-                        ? "light"
-                        : "dark";
-
-                applyTheme(next);
-
-                updateToggle(
-                    event.currentTarget,
-                    next === "dark"
-                );
+                restoreSettings();
 
             }
         );
@@ -1029,132 +1123,87 @@ function setupModals() {
 }
 
 
-/* =====================================================
-   OPEN MODAL
-   ===================================================== */
-
-function openModal(modal) {
-
-    if (!modal) {
-        return;
-    }
-
-
-    modal.hidden = false;
-
-    modal.classList.add(
-        "active"
-    );
-
-    document.body.classList.add(
-        "modal-open"
-    );
-
-}
-
-
-/* =====================================================
-   CLOSE MODAL
-   ===================================================== */
-
-function closeModal(modal) {
-
-    if (!modal) {
-        return;
-    }
-
-
-    modal.hidden = true;
-
-    modal.classList.remove(
-        "active"
-    );
-
-    document.body.classList.remove(
-        "modal-open"
-    );
-
-}
-
-
-/* =====================================================
-   CLOSE SETTINGS
-   ===================================================== */
-
-function closeSettings() {
-
-    closeModal(
-        $("#settingsModal")
-    );
-
-}
-
-
-/* =====================================================
-   CLOSE ABOUT
-   ===================================================== */
-
-function closeAbout() {
-
-    closeModal(
-        $("#aboutModal")
-    );
-
-}
-
-
-/* =====================================================
-   TOGGLE
-   ===================================================== */
-
-function updateToggle(
-    button,
-    active
+function openModal(
+    modal
 ) {
 
-    if (!button) {
+    if (!modal) {
         return;
     }
 
+    modal.hidden =
+        false;
 
-    button.classList.toggle(
-        "active",
-        active
-    );
+}
 
 
-    button.setAttribute(
-        "aria-pressed",
-        String(active)
-    );
+function closeModal(
+    modal
+) {
+
+    if (!modal) {
+        return;
+    }
+
+    modal.hidden =
+        true;
 
 }
 
 
 /* =====================================================
-   RESTORE SETTINGS
+   SETTINGS
    ===================================================== */
 
 function restoreSettings() {
 
-    updateToggle(
-        $("#darkModeSwitch"),
-        state.theme === "dark"
-    );
+    $("#darkModeSwitch")
+        ?.classList.toggle(
+            "active",
+            state.theme === "dark"
+        );
 
 
-    updateToggle(
-        $("#enterSendSwitch"),
-        state.enterToSend
-    );
+    $("#enterSendSwitch")
+        ?.classList.toggle(
+            "active",
+            state.enterToSend
+        );
 
 
-    updateToggle(
-        $("#timestampSwitch"),
-        state.showTimestamps
-    );
+    $("#timestampSwitch")
+        ?.classList.toggle(
+            "active",
+            state.timestamps
+        );
 
 }
 
 
-/* ===============================
+/* =====================================================
+   RERENDER
+   ===================================================== */
+
+function rerenderMessages() {
+
+    if (!messages) {
+        return;
+    }
+
+
+    const saved =
+        [...state.messages];
+
+
+    messages.innerHTML = "";
+
+
+    saved.forEach(
+        (item) => {
+
+            addMessage(
+                item.role,
+                item.content,
+                {
+                    timestamp:
+                      
