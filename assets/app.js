@@ -1,1209 +1,801 @@
-"use strict";
+(() => {
+    "use strict";
 
-/* =====================================================
-   ANKUL AI - COMPLETE APP
-   ===================================================== */
+    const state = {
+        messages: [],
+        isLoading: false,
+        isListening: false,
+        selectedModel: localStorage.getItem("ankul_model") || "gemini-3.8-flash",
+        theme: localStorage.getItem("ankul_theme") || "dark",
+        enterToSend: localStorage.getItem("ankul_enter_send") !== "false",
+        timestamps: localStorage.getItem("ankul_timestamps") === "true"
+    };
 
-const state = {
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-    messages: [],
+    function toast(message) {
+        const el = $("#toast");
+        if (!el) return;
 
-    isLoading: false,
+        el.textContent = message;
+        el.classList.add("show");
 
-    isListening: false,
+        clearTimeout(window.__ankulToast);
+        window.__ankulToast = setTimeout(() => {
+            el.classList.remove("show");
+        }, 2200);
+    }
 
-    selectedModel:
-        localStorage.getItem("ankul_model") ||
-        "gemini-3.8-flash",
+    function escapeHTML(text) {
+        return String(text ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
 
-    theme:
-        localStorage.getItem("ankul_theme") ||
-        "dark",
+    function formatMessage(text) {
+        let html = escapeHTML(text);
 
-    enterToSend:
-        localStorage.getItem("ankul_enter_send") !== "false",
+        html = html.replace(
+            /```([\s\S]*?)```/g,
+            '<pre><code>$1</code></pre>'
+        );
 
-    timestamps:
-        localStorage.getItem("ankul_timestamps") === "true"
+        html = html.replace(
+            /`([^`]+)`/g,
+            "<code>$1</code>"
+        );
 
-};
+        html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        html = html.replace(/\n/g, "<br>");
 
+        return html;
+    }
 
-/* =====================================================
-   HELPERS
-   ===================================================== */
+    function saveState() {
+        localStorage.setItem(
+            "ankul_messages",
+            JSON.stringify(state.messages)
+        );
+    }
 
-const $ = (selector) =>
-    document.querySelector(selector);
+    function loadState() {
+        try {
+            const saved = localStorage.getItem("ankul_messages");
 
-const $$ = (selector) =>
-    document.querySelectorAll(selector);
+            if (saved) {
+                state.messages = JSON.parse(saved);
 
+                if (!Array.isArray(state.messages)) {
+                    state.messages = [];
+                }
+            }
+        } catch {
+            state.messages = [];
+        }
+    }
 
-/* =====================================================
-   ELEMENTS
-   ===================================================== */
-
-const chatForm =
-    $("#chatForm");
-
-const messageInput =
-    $("#messageInput");
-
-const sendButton =
-    $("#sendButton");
-
-const messages =
-    $("#messages");
-
-const welcomeScreen =
-    $("#welcomeScreen");
-
-const typingIndicator =
-    $("#typingIndicator");
-
-const chatArea =
-    $("#chatArea");
-
-const sidebar =
-    $("#sidebar");
-
-const sidebarOverlay =
-    $("#sidebarOverlay");
-
-const toast =
-    $("#toast");
-
-const historyList =
-    $("#historyList");
-
-const fileInput =
-    $("#fileInput");
-
-
-/* =====================================================
-   START
-   ===================================================== */
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        applyTheme(
+    function applyTheme() {
+        document.documentElement.setAttribute(
+            "data-theme",
             state.theme
         );
 
-        setupInput();
+        document.body.classList.toggle(
+            "light-theme",
+            state.theme === "light"
+        );
 
-        setupSuggestions();
+        localStorage.setItem("ankul_theme", state.theme);
 
-        setupSidebar();
+        const switchEl = $("#darkModeSwitch");
 
-        setupTheme();
+        if (switchEl) {
+            switchEl.checked = state.theme === "dark";
+        }
+    }
 
-        setupModals();
+    function updateModelUI() {
+        const selected = $("#selectedModel");
 
-        setupVoice();
+        if (selected) {
+            selected.textContent = state.selectedModel;
+        }
 
-        setupAttachment();
+        $$(".model-option").forEach((item) => {
+            item.classList.toggle(
+                "active",
+                item.dataset.model === state.selectedModel
+            );
+        });
+    }
 
-        setupNewChat();
+    function showWelcome() {
+        const welcome = $("#welcomeScreen");
+        const messages = $("#messages");
 
-        setupModelSelector();
+        if (welcome) welcome.hidden = state.messages.length > 0;
+        if (messages) messages.hidden = state.messages.length === 0;
+    }
 
-        setupNavigation();
+    function renderMessages() {
+        const container = $("#messages");
 
-        setupSearch();
+        if (!container) return;
 
-        setupClearChats();
+        container.innerHTML = "";
 
-        restoreSettings();
+        state.messages.forEach((message) => {
+            const item = document.createElement("div");
 
+            item.className =
+                message.role === "user"
+                    ? "message user-message"
+                    : "message assistant-message";
+
+            const time = message.time
+                ? new Date(message.time).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                  })
+                : "";
+
+            item.innerHTML = `
+                <div class="message-avatar">
+                    ${message.role === "user" ? "U" : "A"}
+                </div>
+
+                <div class="message-content">
+                    <div class="message-name">
+                        ${message.role === "user" ? "You" : "Ankul AI"}
+                    </div>
+
+                    <div class="message-text">
+                        ${formatMessage(message.content)}
+                    </div>
+
+                    ${
+                        state.timestamps && time
+                            ? `<div class="message-time">${time}</div>`
+                            : ""
+                    }
+                </div>
+            `;
+
+            container.appendChild(item);
+        });
+
+        showWelcome();
+
+        requestAnimationFrame(() => {
+            container.scrollTop = container.scrollHeight;
+        });
+    }
+
+    function addMessage(role, content) {
+        state.messages.push({
+            role,
+            content,
+            time: Date.now()
+        });
+
+        saveState();
+        renderMessages();
+        renderHistory();
+    }
+
+    function setLoading(value) {
+        state.isLoading = value;
+
+        const typing = $("#typingIndicator");
+        const send = $("#sendButton");
+
+        if (typing) {
+            typing.hidden = !value;
+        }
+
+        if (send) {
+            send.disabled = value;
+        }
+    }
+
+    async function sendMessage(text) {
+        text = String(text || "").trim();
+
+        if (!text || state.isLoading) return;
+
+        addMessage("user", text);
+
+        const input = $("#messageInput");
+
+        if (input) {
+            input.value = "";
+            input.style.height = "auto";
+        }
+
+        setLoading(true);
+
+        try {
+            const history = state.messages
+                .slice(0, -1)
+                .map((m) => ({
+                    role: m.role,
+                    content: m.content
+                }));
+
+            const response = await fetch("/api/chat.php", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    message: text,
+                    history: history,
+                    model: state.selectedModel
+                })
+            });
+
+            let data;
+
+            try {
+                data = await response.json();
+            } catch {
+                throw new Error("Server returned an invalid response.");
+            }
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.message ||
+                    data.error ||
+                    "AI response failed."
+                );
+            }
+
+            addMessage(
+                "assistant",
+                data.message || "No response received."
+            );
+
+        } catch (error) {
+            console.error("Ankul AI error:", error);
+
+            addMessage(
+                "assistant",
+                "Sorry, abhi AI response nahi de pa raha hoon.\n\n" +
+                "Please check your Gemini API configuration and try again."
+            );
+
+            toast("AI response failed");
+        } finally {
+            setLoading(false);
+
+            const input = $("#messageInput");
+
+            if (input) {
+                input.focus();
+            }
+        }
+    }
+
+    function newChat() {
+        state.messages = [];
+
+        localStorage.removeItem("ankul_messages");
+
+        renderMessages();
         renderHistory();
 
-        updateSendButton();
+        const input = $("#messageInput");
 
-    }
-);
-
-
-/* =====================================================
-   INPUT
-   ===================================================== */
-
-function setupInput() {
-
-    if (!chatForm || !messageInput) {
-        return;
-    }
-
-
-    messageInput.addEventListener(
-        "input",
-        () => {
-
-            autoResize();
-
-            updateSendButton();
-
+        if (input) {
+            input.value = "";
+            input.focus();
         }
-    );
 
+        closeModelMenu();
+        closeSidebar();
 
-    messageInput.addEventListener(
-        "keydown",
-        (event) => {
+        toast("New chat started");
+    }
 
+    function renderHistory() {
+        const list = $("#historyList");
+
+        if (!list) return;
+
+        list.innerHTML = "";
+
+        if (!state.messages.length) {
+            list.innerHTML = `
+                <div class="empty-history">
+                    No conversations yet
+                </div>
+            `;
+            return;
+        }
+
+        const firstUserMessage = state.messages.find(
+            (m) => m.role === "user"
+        );
+
+        const title = firstUserMessage
+            ? firstUserMessage.content.slice(0, 32)
+            : "New chat";
+
+        const item = document.createElement("button");
+
+        item.type = "button";
+        item.className = "history-item";
+        item.textContent = title;
+
+        item.addEventListener("click", () => {
+            renderMessages();
+            closeSidebar();
+        });
+
+        list.appendChild(item);
+    }
+
+    function setupInput() {
+        const input = $("#messageInput");
+        const form = $("#chatForm");
+
+        if (!input || !form) return;
+
+        input.addEventListener("input", () => {
+            input.style.height = "auto";
+            input.style.height =
+                Math.min(input.scrollHeight, 130) + "px";
+        });
+
+        input.addEventListener("keydown", (event) => {
             if (
                 event.key === "Enter" &&
                 !event.shiftKey &&
                 state.enterToSend
             ) {
-
                 event.preventDefault();
-
-                if (
-                    !state.isLoading &&
-                    messageInput.value.trim()
-                ) {
-
-                    sendMessage();
-
-                }
-
+                form.requestSubmit();
             }
+        });
 
-        }
-    );
-
-
-    chatForm.addEventListener(
-        "submit",
-        (event) => {
-
+        form.addEventListener("submit", (event) => {
             event.preventDefault();
 
-            sendMessage();
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   RESIZE
-   ===================================================== */
-
-function autoResize() {
-
-    if (!messageInput) {
-        return;
+            sendMessage(input.value);
+        });
     }
 
-    messageInput.style.height =
-        "auto";
+    function setupSuggestions() {
+        $$(".prompt-card").forEach((card) => {
+            card.addEventListener("click", () => {
+                const prompt =
+                    card.dataset.prompt ||
+                    card.querySelector("h3")?.textContent ||
+                    card.textContent.trim();
 
-    messageInput.style.height =
-        Math.min(
-            messageInput.scrollHeight,
-            130
-        ) + "px";
+                const input = $("#messageInput");
 
-}
+                if (!input) return;
 
+                input.value = prompt;
+                input.focus();
 
-/* =====================================================
-   SEND BUTTON
-   ===================================================== */
+                input.dispatchEvent(new Event("input"));
 
-function updateSendButton() {
-
-    if (!sendButton || !messageInput) {
-        return;
+                toast("Suggestion added");
+            });
+        });
     }
 
-    sendButton.disabled =
-        state.isLoading ||
-        !messageInput.value.trim();
+    function setupNewChat() {
+        $("#newChatButton")?.addEventListener(
+            "click",
+            newChat
+        );
 
-}
-
-
-/* =====================================================
-   SEND MESSAGE
-   ===================================================== */
-
-async function sendMessage(
-    customPrompt = null
-) {
-
-    if (state.isLoading) {
-        return;
+        $("#quickNewChat")?.addEventListener(
+            "click",
+            newChat
+        );
     }
 
+    function setupSidebar() {
+        const sidebar = $("#sidebar");
+        const menuButton = $("#menuButton");
+        const closeButton = $("#closeSidebar");
 
-    const text =
-        customPrompt !== null
-            ? String(customPrompt).trim()
-            : messageInput.value.trim();
+        menuButton?.addEventListener("click", () => {
+            sidebar?.classList.add("open");
+        });
 
-
-    if (!text) {
-        return;
+        closeButton?.addEventListener("click", () => {
+            closeSidebar();
+        });
     }
 
+    function closeSidebar() {
+        $("#sidebar")?.classList.remove("open");
+    }
 
-    const previousHistory =
-        state.messages
-            .slice(-12)
-            .map(
-                (item) => ({
-                    role:
-                        item.role === "assistant"
-                            ? "assistant"
-                            : "user",
+    function setupSearch() {
+        const input = $("#searchInput");
 
-                    content:
-                        item.content
-                })
-            );
+        if (!input) return;
 
+        input.addEventListener("input", () => {
+            const query = input.value.toLowerCase().trim();
 
-    addMessage(
-        "user",
-        text
-    );
+            $$("#historyList .history-item").forEach((item) => {
+                item.hidden =
+                    query &&
+                    !item.textContent.toLowerCase().includes(query);
+            });
+        });
+    }
 
-
-    messageInput.value = "";
-
-    autoResize();
-
-    updateSendButton();
-
-    hideWelcome();
-
-    state.isLoading = true;
-
-    showTyping(true);
-
-    scrollToBottom();
-
-
-    try {
-
-        const response =
-            await fetch(
-                "/api/chat.php",
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify({
-                            message: text,
-
-                            history:
-                                previousHistory
-                        })
+    function setupClearChats() {
+        $("#clearChatsButton")?.addEventListener(
+            "click",
+            () => {
+                if (!state.messages.length) {
+                    toast("No chats to clear");
+                    return;
                 }
-            );
 
-
-        if (!response.ok) {
-
-            throw new Error(
-                "HTTP " +
-                response.status
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            !data ||
-            data.success !== true
-        ) {
-
-            throw new Error(
-                data?.error ||
-                "AI response failed"
-            );
-
-        }
-
-
-        addMessage(
-            "assistant",
-            data.message ||
-            "I received your message."
-        );
-
-
-        saveConversation();
-
-
-    } catch (error) {
-
-        console.error(
-            "Ankul AI:",
-            error
-        );
-
-
-        addMessage(
-            "assistant",
-            "Sorry, I couldn't connect to Ankul AI right now. Please check your server/API configuration."
-        );
-
-
-        showToast(
-            "AI connection failed."
-        );
-
-    } finally {
-
-        state.isLoading =
-            false;
-
-        showTyping(
-            false
-        );
-
-        updateSendButton();
-
-        scrollToBottom();
-
-    }
-
-}
-
-
-/* =====================================================
-   ADD MESSAGE
-   ===================================================== */
-
-function addMessage(
-    role,
-    content,
-    options = {}
-) {
-
-    const time =
-        options.timestamp
-            ? new Date(options.timestamp)
-            : new Date();
-
-
-    const item = {
-
-        role,
-
-        content:
-            String(content),
-
-        timestamp:
-            time.toISOString()
-
-    };
-
-
-    state.messages.push(
-        item
-    );
-
-
-    if (!messages) {
-        return;
-    }
-
-
-    const element =
-        document.createElement(
-            "div"
-        );
-
-
-    element.className =
-        "message " +
-        (
-            role === "user"
-                ? "user"
-                : "assistant"
-        );
-
-
-    const timeHTML =
-        state.timestamps
-            ? `
-                <div class="message-time">
-                    ${formatTime(time)}
-                </div>
-            `
-            : "";
-
-
-    element.innerHTML = `
-
-        <div class="message-avatar">
-            ${role === "assistant" ? "A" : "U"}
-        </div>
-
-        <div class="message-body">
-
-            ${
-                role === "assistant"
-                    ? formatMessage(content)
-                    : escapeHTML(content)
-            }
-
-            ${timeHTML}
-
-        </div>
-
-    `;
-
-
-    messages.appendChild(
-        element
-    );
-
-
-    scrollToBottom();
-
-}
-
-
-/* =====================================================
-   FORMAT AI RESPONSE
-   ===================================================== */
-
-function formatMessage(text) {
-
-    let safe =
-        escapeHTML(text);
-
-
-    safe =
-        safe.replace(
-            /```([\s\S]*?)```/g,
-            "<pre><code>$1</code></pre>"
-        );
-
-
-    safe =
-        safe.replace(
-            /\*\*(.*?)\*\*/g,
-            "<strong>$1</strong>"
-        );
-
-
-    safe =
-        safe.replace(
-            /`([^`]+)`/g,
-            "<code>$1</code>"
-        );
-
-
-    safe =
-        safe.replace(
-            /\n/g,
-            "<br>"
-        );
-
-
-    return safe;
-
-}
-
-
-/* =====================================================
-   ESCAPE
-   ===================================================== */
-
-function escapeHTML(value) {
-
-    return String(value)
-
-        .replaceAll(
-            "&",
-            "&amp;"
-        )
-
-        .replaceAll(
-            "<",
-            "&lt;"
-        )
-
-        .replaceAll(
-            ">",
-            "&gt;"
-        )
-
-        .replaceAll(
-            '"',
-            "&quot;"
-        )
-
-        .replaceAll(
-            "'",
-            "&#039;"
-        );
-
-}
-
-
-/* =====================================================
-   TIME
-   ===================================================== */
-
-function formatTime(
-    date
-) {
-
-    return date.toLocaleTimeString(
-        [],
-        {
-            hour: "2-digit",
-            minute: "2-digit"
-        }
-    );
-
-}
-
-
-/* =====================================================
-   WELCOME
-   ===================================================== */
-
-function hideWelcome() {
-
-    if (!welcomeScreen) {
-        return;
-    }
-
-    welcomeScreen.style.display =
-        "none";
-
-}
-
-
-function showWelcome() {
-
-    if (!welcomeScreen) {
-        return;
-    }
-
-    welcomeScreen.style.display =
-        "flex";
-
-}
-
-
-/* =====================================================
-   PROMPT CARDS
-   ===================================================== */
-
-function setupSuggestions() {
-
-    $$(".prompt-card")
-        .forEach(
-            (button) => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        const prompt =
-                            button.dataset.prompt;
-
-                        if (prompt) {
-                            sendMessage(
-                                prompt
-                            );
-                        }
-
-                    }
+                const confirmed = confirm(
+                    "Clear all chats?"
                 );
 
+                if (!confirmed) return;
+
+                state.messages = [];
+
+                localStorage.removeItem(
+                    "ankul_messages"
+                );
+
+                renderMessages();
+                renderHistory();
+
+                toast("All chats cleared");
+            }
+        );
+    }
+
+    function closeModelMenu() {
+        const menu = $("#modelMenu");
+
+        if (menu) {
+            menu.hidden = true;
+        }
+    }
+
+    function setupModelSelector() {
+        const button = $("#modelButton");
+        const menu = $("#modelMenu");
+
+        if (!button || !menu) return;
+
+        button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            menu.hidden = !menu.hidden;
+        });
+
+        menu.addEventListener("click", (event) => {
+            const option =
+                event.target.closest("[data-model]");
+
+            if (!option) return;
+
+            state.selectedModel =
+                option.dataset.model;
+
+            localStorage.setItem(
+                "ankul_model",
+                state.selectedModel
+            );
+
+            updateModelUI();
+            closeModelMenu();
+
+            toast(
+                "Model: " +
+                state.selectedModel
+            );
+        });
+
+        document.addEventListener("click", (event) => {
+            if (
+                !menu.contains(event.target) &&
+                !button.contains(event.target)
+            ) {
+                closeModelMenu();
+            }
+        });
+    }
+
+    function setupTheme() {
+        $("#themeButton")?.addEventListener(
+            "click",
+            () => {
+                state.theme =
+                    state.theme === "dark"
+                        ? "light"
+                        : "dark";
+
+                applyTheme();
+
+                toast(
+                    state.theme === "dark"
+                        ? "Switched to dark mode"
+                        : "Switched to light mode"
+                );
             }
         );
 
-}
+        const switchEl = $("#darkModeSwitch");
 
+        switchEl?.addEventListener(
+            "change",
+            () => {
+                state.theme =
+                    switchEl.checked
+                        ? "dark"
+                        : "light";
 
-/* =====================================================
-   TYPING
-   ===================================================== */
-
-function showTyping(
-    show
-) {
-
-    if (!typingIndicator) {
-        return;
+                applyTheme();
+            }
+        );
     }
 
+    function setupModals() {
+        $$("[data-close-modal]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const id =
+                    button.dataset.closeModal;
 
-    typingIndicator.hidden =
-        !show;
+                const modal = document.getElementById(id);
 
-}
+                if (modal) {
+                    modal.hidden = true;
+                }
+            });
+        });
 
+        $("#settingsButton")?.addEventListener(
+            "click",
+            () => {
+                const modal = $("#settingsModal");
 
-/* =====================================================
-   SCROLL
-   ===================================================== */
+                if (modal) {
+                    modal.hidden = false;
+                }
 
-function scrollToBottom() {
+                closeSidebar();
+            }
+        );
 
-    if (!chatArea) {
-        return;
-    }
+        $("#aboutButton")?.addEventListener(
+            "click",
+            () => {
+                const modal = $("#aboutModal");
 
+                if (modal) {
+                    modal.hidden = false;
+                }
 
-    requestAnimationFrame(
-        () => {
+                closeSidebar();
+            }
+        );
 
-            chatArea.scrollTo({
-                top:
-                    chatArea.scrollHeight,
+        $$(".modal").forEach((modal) => {
+            modal.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    modal.hidden = true;
+                }
+            });
+        });
 
-                behavior:
-                    "smooth"
+        document.addEventListener("keydown", (event) => {
+            if (event.key !== "Escape") return;
+
+            $$(".modal").forEach((modal) => {
+                modal.hidden = true;
             });
 
-        }
-    );
-
-}
-
-
-/* =====================================================
-   NEW CHAT
-   ===================================================== */
-
-function setupNewChat() {
-
-    [
-        $("#newChatButton"),
-        $("#quickNewChat")
-    ]
-        .forEach(
-            (button) => {
-
-                button?.addEventListener(
-                    "click",
-                    newChat
-                );
-
-            }
-        );
-
-}
-
-
-function newChat() {
-
-    if (state.isLoading) {
-
-        showToast(
-            "Please wait for the current response."
-        );
-
-        return;
+            closeModelMenu();
+        });
     }
 
+    function restoreSettings() {
+        const enterSwitch = $("#enterSendSwitch");
+        const timestampSwitch = $("#timestampSwitch");
 
-    state.messages = [];
+        if (enterSwitch) {
+            enterSwitch.checked =
+                state.enterToSend;
 
+            enterSwitch.addEventListener(
+                "change",
+                () => {
+                    state.enterToSend =
+                        enterSwitch.checked;
 
-    if (messages) {
-        messages.innerHTML = "";
-    }
-
-
-    showWelcome();
-
-    messageInput.value = "";
-
-    autoResize();
-
-    updateSendButton();
-
-    closeSidebar();
-
-    saveHistory();
-
-    showToast(
-        "New chat started."
-    );
-
-}
-
-
-/* =====================================================
-   SIDEBAR
-   ===================================================== */
-
-function setupSidebar() {
-
-    $("#menuButton")
-        ?.addEventListener(
-            "click",
-            openSidebar
-        );
-
-
-    $("#closeSidebar")
-        ?.addEventListener(
-            "click",
-            closeSidebar
-        );
-
-
-    sidebarOverlay
-        ?.addEventListener(
-            "click",
-            closeSidebar
-        );
-
-}
-
-
-function openSidebar() {
-
-    sidebar?.classList.add(
-        "open"
-    );
-
-    sidebarOverlay?.classList.add(
-        "active"
-    );
-
-}
-
-
-function closeSidebar() {
-
-    sidebar?.classList.remove(
-        "open"
-    );
-
-    sidebarOverlay?.classList.remove(
-        "active"
-    );
-
-}
-
-
-/* =====================================================
-   MODEL SELECTOR
-   ===================================================== */
-
-function setupModelSelector() {
-
-    const button =
-        $("#modelButton");
-
-    const menu =
-        $("#modelMenu");
-
-
-    if (!button || !menu) {
-        return;
-    }
-
-
-    button.addEventListener(
-        "click",
-        (event) => {
-
-            event.stopPropagation();
-
-            menu.classList.toggle(
-                "open"
+                    localStorage.setItem(
+                        "ankul_enter_send",
+                        String(state.enterToSend)
+                    );
+                }
             );
-
         }
-    );
 
-
-    $$(".model-option")
-        .forEach(
-            (option) => {
-
-                option.addEventListener(
-                    "click",
-                    () => {
-
-                        state.selectedModel =
-                            option.dataset.model;
-
-                        localStorage.setItem(
-                            "ankul_model",
-                            state.selectedModel
-                        );
-
-
-                        const name =
-                            option.querySelector(
-                                "span"
-                            )?.textContent ||
-                            "Auto";
-
-
-                        $("#selectedModel")
-                            .textContent =
-                            name;
-
-
-                        $$(".model-option")
-                            .forEach(
-                                (item) => {
-
-                                    item.classList.toggle(
-                                        "active",
-                                        item === option
-                                    );
-
-                                }
-                            );
-
-
-                        menu.classList.remove(
-                            "open"
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-    document.addEventListener(
-        "click",
-        () => {
-
-            menu.classList.remove(
-                "open"
-            );
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   THEME
-   ===================================================== */
-
-function setupTheme() {
-
-    $("#themeButton")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                applyTheme(
-                    state.theme === "dark"
-                        ? "light"
-                        : "dark"
-                );
-
-            }
-        );
-
-
-    $("#darkModeSwitch")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                applyTheme(
-                    state.theme === "dark"
-                        ? "light"
-                        : "dark"
-                );
-
-                restoreSettings();
-
-            }
-        );
-
-}
-
-
-function applyTheme(
-    theme
-) {
-
-    state.theme =
-        theme === "light"
-            ? "light"
-            : "dark";
-
-
-    document.body.classList.toggle(
-        "light",
-        state.theme === "light"
-    );
-
-
-    localStorage.setItem(
-        "ankul_theme",
-        state.theme
-    );
-
-}
-
-
-/* =====================================================
-   MODALS
-   ===================================================== */
-
-function setupModals() {
-
-    $("#settingsButton")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                openModal(
-                    $("#settingsModal")
-                );
-
-                closeSidebar();
-
-            }
-        );
-
-
-    $("#aboutButton")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                openModal(
-                    $("#aboutModal")
-                );
-
-                closeSidebar();
-
-            }
-        );
-
-
-    $$("[data-close-modal]")
-        .forEach(
-            (button) => {
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        const id =
-                            button.getAttribute(
-                                "data-close-modal"
-                            );
-
-                        closeModal(
-                            document.getElementById(
-                                id
-                            )
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-
-    $$(".modal-backdrop")
-        .forEach(
-            (modal) => {
-
-                modal.addEventListener(
-                    "click",
-                    (event) => {
-
-                        if (
-                            event.target === modal
-                        ) {
-
-                            closeModal(
-                                modal
-                            );
-
-                        }
-
-                    }
-                );
-
-            }
-        );
-
-
-    document.addEventListener(
-        "keydown",
-        (event) => {
-
-            if (
-                event.key === "Escape"
-            ) {
-
-                $$(".modal-backdrop")
-                    .forEach(
-                        closeModal
+        if (timestampSwitch) {
+            timestampSwitch.checked =
+                state.timestamps;
+
+            timestampSwitch.addEventListener(
+                "change",
+                () => {
+                    state.timestamps =
+                        timestampSwitch.checked;
+
+                    localStorage.setItem(
+                        "ankul_timestamps",
+                        String(state.timestamps)
                     );
 
-                closeSidebar();
-
-            }
-
+                    renderMessages();
+                }
+            );
         }
-    );
+    }
 
+    function setupAttachment() {
+        const button = $("#attachButton");
+        const input = $("#fileInput");
 
-    $("#enterSendSwitch")
-        ?.addEventListener(
-            "click",
-            () => {
+        if (!button || !input) return;
 
-                state.enterToSend =
-                    !state.enterToSend;
+        button.addEventListener("click", () => {
+            input.click();
+        });
 
-                localStorage.setItem(
-                    "ankul_enter_send",
-                    String(
-                        state.enterToSend
-                    )
+        input.addEventListener("change", () => {
+            const file = input.files?.[0];
+
+            if (!file) return;
+
+            toast(
+                "Selected: " + file.name
+            );
+
+            input.value = "";
+        });
+    }
+
+    function setupVoice() {
+        const button = $("#voiceButton");
+
+        if (!button) return;
+
+        const SpeechRecognition =
+            window.SpeechRecognition ||
+            window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            button.addEventListener("click", () => {
+                toast(
+                    "Voice input is not supported in this browser"
+                );
+            });
+
+            return;
+        }
+
+        const recognition =
+            new SpeechRecognition();
+
+        recognition.lang = "hi-IN";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            state.isListening = true;
+            button.classList.add("active");
+            toast("Listening...");
+        };
+
+        recognition.onresult = (event) => {
+            const text =
+                event.results[0][0].transcript;
+
+            const input = $("#messageInput");
+
+            if (input) {
+                input.value =
+                    (input.value
+                        ? input.value + " "
+                        : "") + text;
+
+                input.dispatchEvent(
+                    new Event("input")
                 );
 
-                restoreSettings();
-
+                input.focus();
             }
-        );
+        };
 
+        recognition.onerror = () => {
+            toast("Voice input failed");
+        };
 
-    $("#timestampSwitch")
-        ?.addEventListener(
-            "click",
-            () => {
+        recognition.onend = () => {
+            state.isListening = false;
+            button.classList.remove("active");
+        };
 
-                state.timestamps =
-                    !state.timestamps;
+        button.addEventListener("click", () => {
+            if (state.isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        });
+    }
 
-                localStorage.setItem(
-                    "ankul_timestamps",
-                    String(
-                        state.timestamps
-                    )
+    function setupNavigation() {
+        $$(".nav-item").forEach((item) => {
+            item.addEventListener("click", () => {
+                $$(".nav-item").forEach((x) =>
+                    x.classList.remove("active")
                 );
 
-                rerenderMessages();
+                item.classList.add("active");
 
-                restoreSettings();
+                const page = item.dataset.page;
 
+                if (page === "home") {
+                    if (!state.messages.length) {
+                        showWelcome();
+                    } else {
+                        renderMessages();
+                    }
+                }
+
+                if (page === "history") {
+                    renderHistory();
+                    toast("Chat history");
+                }
+
+                if (page === "saved") {
+                    toast("Saved chats");
+                }
+
+                closeSidebar();
+            });
+        });
+
+        $("#topMoreButton")?.addEventListener(
+            "click",
+            () => {
+                toast("More options");
             }
         );
-
-}
-
-
-function openModal(
-    modal
-) {
-
-    if (!modal) {
-        return;
     }
 
-    modal.hidden =
-        false;
+    function setupGlobalClickSafety() {
+        document.addEventListener(
+            "click",
+            (event) => {
+                const button =
+                    event.target.closest("button");
 
-}
+                if (!button) return;
 
-
-function closeModal(
-    modal
-) {
-
-    if (!modal) {
-        return;
-    }
-
-    modal.hidden =
-        true;
-
-}
-
-
-/* =====================================================
-   SETTINGS
-   ===================================================== */
-
-function restoreSettings() {
-
-    $("#darkModeSwitch")
-        ?.classList.toggle(
-            "active",
-            state.theme === "dark"
-        );
-
-
-    $("#enterSendSwitch")
-        ?.classList.toggle(
-            "active",
-            state.enterToSend
-        );
-
-
-    $("#timestampSwitch")
-        ?.classList.toggle(
-            "active",
-            state.timestamps
-        );
-
-}
-
-
-/* =====================================================
-   RERENDER
-   ===================================================== */
-
-function rerenderMessages() {
-
-    if (!messages) {
-        return;
-    }
-
-
-    const saved =
-        [...state.messages];
-
-
-    messages.innerHTML = "";
-
-
-    saved.forEach(
-        (item) => {
-
-            addMessage(
-                item.role,
-                item.content,
-                {
-                    timestamp:
-                      
+                if (
+                    button.disabled ||
+                 
