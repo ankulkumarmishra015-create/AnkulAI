@@ -1,5 +1,16 @@
 :{$PORT:80} {
     root * /app
+
     encode zstd gzip
+
+    # Static CSS, JS, images and other assets
+    @static {
+        path /assets/*
+    }
+
+    header @static Content-Type ""
+
+    file_server @static
+
     php_server
 }
