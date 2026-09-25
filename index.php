@@ -23,7 +23,7 @@ $appVersion = '1.0.0';
 
     <link
         rel="stylesheet"
-        href="/assets/style.css?v=100"
+        href="/assets/style.css?v=101"
     >
 </head>
 
@@ -31,8 +31,12 @@ $appVersion = '1.0.0';
 
 <div class="app">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside
+        class="sidebar"
+        id="sidebar"
+    >
 
         <div class="sidebar-header">
 
@@ -43,8 +47,15 @@ $appVersion = '1.0.0';
                 </div>
 
                 <div class="brand-text">
-                    <strong>Ankul AI</strong>
-                    <span>Personal AI Assistant</span>
+
+                    <strong>
+                        Ankul AI
+                    </strong>
+
+                    <span>
+                        Personal AI Assistant
+                    </span>
+
                 </div>
 
             </div>
@@ -76,7 +87,9 @@ $appVersion = '1.0.0';
 
         <div class="search-box">
 
-            <span class="search-icon">⌕</span>
+            <span class="search-icon">
+                ⌕
+            </span>
 
             <input
                 type="search"
@@ -95,27 +108,45 @@ $appVersion = '1.0.0';
                 class="nav-item active"
                 data-page="home"
             >
-                <span class="nav-icon">⌂</span>
-                <span>Home</span>
+                <span class="nav-icon">
+                    ⌂
+                </span>
+
+                <span>
+                    Home
+                </span>
             </button>
+
 
             <button
                 type="button"
                 class="nav-item"
                 data-page="history"
             >
-                <span class="nav-icon">◷</span>
-                <span>History</span>
+                <span class="nav-icon">
+                    ◷
+                </span>
+
+                <span>
+                    History
+                </span>
             </button>
+
 
             <button
                 type="button"
                 class="nav-item"
                 data-page="saved"
             >
-                <span class="nav-icon">♡</span>
-                <span>Saved</span>
+                <span class="nav-icon">
+                    ♡
+                </span>
+
+                <span>
+                    Saved
+                </span>
             </button>
+
 
             <button
                 type="button"
@@ -123,8 +154,13 @@ $appVersion = '1.0.0';
                 id="settingsButton"
                 data-page="settings"
             >
-                <span class="nav-icon">⚙</span>
-                <span>Settings</span>
+                <span class="nav-icon">
+                    ⚙
+                </span>
+
+                <span>
+                    Settings
+                </span>
             </button>
 
         </nav>
@@ -152,8 +188,12 @@ $appVersion = '1.0.0';
                 id="aboutButton"
             >
                 <span>ⓘ</span>
-                <span>About Ankul AI</span>
+
+                <span>
+                    About Ankul AI
+                </span>
             </button>
+
 
             <button
                 type="button"
@@ -161,7 +201,10 @@ $appVersion = '1.0.0';
                 id="clearChatsButton"
             >
                 <span>♧</span>
-                <span>Clear all chats</span>
+
+                <span>
+                    Clear all chats
+                </span>
             </button>
 
         </div>
@@ -169,10 +212,12 @@ $appVersion = '1.0.0';
     </aside>
 
 
-    <!-- MAIN -->
+    <!-- ================= MAIN ================= -->
+
     <main class="main">
 
         <!-- TOPBAR -->
+
         <header class="topbar">
 
             <div class="topbar-left">
@@ -184,6 +229,7 @@ $appVersion = '1.0.0';
                 >
                     ☰
                 </button>
+
 
                 <div class="top-brand">
 
@@ -202,6 +248,8 @@ $appVersion = '1.0.0';
 
             <div class="topbar-right">
 
+                <!-- MODEL -->
+
                 <div class="model-selector">
 
                     <button
@@ -209,12 +257,17 @@ $appVersion = '1.0.0';
                         class="model-button"
                         id="modelButton"
                     >
+
                         <span id="selectedModel">
                             gemini-3.8-flash
                         </span>
 
-                        <span>▾</span>
+                        <span>
+                            ▾
+                        </span>
+
                     </button>
+
 
                     <div
                         class="model-menu"
@@ -227,9 +280,17 @@ $appVersion = '1.0.0';
                             class="model-option active"
                             data-model="gemini-3.8-flash"
                         >
-                            <span>Gemini 3.8 Flash</span>
-                            <span>✓</span>
+
+                            <span>
+                                Gemini 3.8 Flash
+                            </span>
+
+                            <span>
+                                ✓
+                            </span>
+
                         </button>
+
 
                         <button
                             type="button"
@@ -238,6 +299,7 @@ $appVersion = '1.0.0';
                         >
                             Gemini 3.6 Flash
                         </button>
+
 
                         <button
                             type="button"
@@ -252,6 +314,8 @@ $appVersion = '1.0.0';
                 </div>
 
 
+                <!-- NEW CHAT -->
+
                 <button
                     type="button"
                     class="top-icon-button"
@@ -261,6 +325,9 @@ $appVersion = '1.0.0';
                     ＋
                 </button>
 
+
+                <!-- THEME -->
+
                 <button
                     type="button"
                     class="top-icon-button"
@@ -269,6 +336,9 @@ $appVersion = '1.0.0';
                 >
                     ☼
                 </button>
+
+
+                <!-- MORE -->
 
                 <button
                     type="button"
@@ -284,11 +354,14 @@ $appVersion = '1.0.0';
         </header>
 
 
-        <!-- CHAT -->
+        <!-- ================= CHAT AREA ================= -->
+
         <section
             class="chat-area"
             id="chatArea"
         >
+
+            <!-- WELCOME -->
 
             <div
                 class="welcome-screen"
@@ -299,9 +372,11 @@ $appVersion = '1.0.0';
                     A
                 </div>
 
+
                 <h1>
                     How can I help you today?
                 </h1>
+
 
                 <p>
                     Ask anything, write code,
@@ -316,12 +391,23 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Explain something in simple words"
                     >
-                        <div class="prompt-icon">💡</div>
+
+                        <div class="prompt-icon">
+                            💡
+                        </div>
 
                         <div class="prompt-content">
-                            <strong>Explain something</strong>
-                            <span>Get clear, simple explanations</span>
+
+                            <strong>
+                                Explain something
+                            </strong>
+
+                            <span>
+                                Get clear, simple explanations
+                            </span>
+
                         </div>
+
                     </button>
 
 
@@ -330,12 +416,23 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Help me build a website"
                     >
-                        <div class="prompt-icon">💻</div>
+
+                        <div class="prompt-icon">
+                            💻
+                        </div>
 
                         <div class="prompt-content">
-                            <strong>Build a website</strong>
-                            <span>Get coding help</span>
+
+                            <strong>
+                                Build a website
+                            </strong>
+
+                            <span>
+                                Get coding help
+                            </span>
+
                         </div>
+
                     </button>
 
 
@@ -344,12 +441,23 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Make a study plan for me"
                     >
-                        <div class="prompt-icon">📚</div>
+
+                        <div class="prompt-icon">
+                            📚
+                        </div>
 
                         <div class="prompt-content">
-                            <strong>Study plan</strong>
-                            <span>Organize your learning</span>
+
+                            <strong>
+                                Study plan
+                            </strong>
+
+                            <span>
+                                Organize your learning
+                            </span>
+
                         </div>
+
                     </button>
 
 
@@ -358,18 +466,31 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Give me some project ideas"
                     >
-                        <div class="prompt-icon">🚀</div>
+
+                        <div class="prompt-icon">
+                            🚀
+                        </div>
 
                         <div class="prompt-content">
-                            <strong>Project ideas</strong>
-                            <span>Build something useful</span>
+
+                            <strong>
+                                Project ideas
+                            </strong>
+
+                            <span>
+                                Build something useful
+                            </span>
+
                         </div>
+
                     </button>
 
                 </div>
 
             </div>
 
+
+            <!-- MESSAGES -->
 
             <div
                 id="messages"
@@ -378,26 +499,33 @@ $appVersion = '1.0.0';
             ></div>
 
 
+            <!-- TYPING -->
+
             <div
                 id="typingIndicator"
                 class="typing-indicator"
                 hidden
             >
+
                 <div class="message-avatar">
                     A
                 </div>
 
                 <div class="typing-dots">
+
                     <span></span>
                     <span></span>
                     <span></span>
+
                 </div>
+
             </div>
 
         </section>
 
 
-        <!-- COMPOSER -->
+        <!-- ================= COMPOSER ================= -->
+
         <div class="composer-area">
 
             <form
@@ -405,6 +533,8 @@ $appVersion = '1.0.0';
                 class="composer"
                 autocomplete="off"
             >
+
+                <!-- ATTACH -->
 
                 <button
                     type="button"
@@ -425,6 +555,8 @@ $appVersion = '1.0.0';
                 >
 
 
+                <!-- MESSAGE -->
+
                 <textarea
                     id="messageInput"
                     name="message"
@@ -433,6 +565,8 @@ $appVersion = '1.0.0';
                     autocomplete="off"
                 ></textarea>
 
+
+                <!-- VOICE -->
 
                 <button
                     type="button"
@@ -443,6 +577,8 @@ $appVersion = '1.0.0';
                     ♫
                 </button>
 
+
+                <!-- SEND -->
 
                 <button
                     type="submit"
@@ -468,7 +604,8 @@ $appVersion = '1.0.0';
 </div>
 
 
-<!-- SETTINGS -->
+<!-- ================= SETTINGS MODAL ================= -->
+
 <div
     class="modal"
     id="settingsModal"
@@ -479,7 +616,9 @@ $appVersion = '1.0.0';
 
         <div class="modal-header">
 
-            <h2>Settings</h2>
+            <h2>
+                Settings
+            </h2>
 
             <button
                 type="button"
@@ -500,14 +639,21 @@ $appVersion = '1.0.0';
                     APPEARANCE
                 </div>
 
+
                 <div class="setting-row">
 
                     <div>
-                        <strong>Theme</strong>
+
+                        <strong>
+                            Theme
+                        </strong>
+
                         <span>
                             Choose your preferred color scheme
                         </span>
+
                     </div>
+
 
                     <div class="theme-options">
 
@@ -518,6 +664,7 @@ $appVersion = '1.0.0';
                         >
                             Dark
                         </button>
+
 
                         <button
                             type="button"
@@ -544,11 +691,17 @@ $appVersion = '1.0.0';
                 <div class="setting-row">
 
                     <div>
-                        <strong>Enter to send</strong>
+
+                        <strong>
+                            Enter to send
+                        </strong>
+
                         <span>
                             Use Shift + Enter for new line
                         </span>
+
                     </div>
+
 
                     <label class="switch">
 
@@ -568,11 +721,17 @@ $appVersion = '1.0.0';
                 <div class="setting-row">
 
                     <div>
-                        <strong>Show timestamps</strong>
+
+                        <strong>
+                            Show timestamps
+                        </strong>
+
                         <span>
                             Display time next to messages
                         </span>
+
                     </div>
+
 
                     <label class="switch">
 
@@ -595,6 +754,7 @@ $appVersion = '1.0.0';
                 <div class="settings-label">
                     ABOUT
                 </div>
+
 
                 <div class="about-small">
 
@@ -626,7 +786,8 @@ $appVersion = '1.0.0';
 </div>
 
 
-<!-- ABOUT -->
+<!-- ================= ABOUT MODAL ================= -->
+
 <div
     class="modal"
     id="aboutModal"
@@ -637,7 +798,10 @@ $appVersion = '1.0.0';
 
         <div class="modal-header">
 
-            <h2>About Ankul AI</h2>
+            <h2>
+                About Ankul AI
+            </h2>
+
 
             <button
                 type="button"
@@ -656,35 +820,55 @@ $appVersion = '1.0.0';
                 A
             </div>
 
+
             <h3>
                 Ankul AI
             </h3>
+
 
             <p>
                 Your personal AI assistant.
             </p>
 
+
             <div class="about-details">
 
                 <div>
-                    <strong>Developer</strong>
+
+                    <strong>
+                        Developer
+                    </strong>
+
                     <span>
                         Ankul Kumar Mishra
                     </span>
+
                 </div>
 
+
                 <div>
-                    <strong>Version</strong>
+
+                    <strong>
+                        Version
+                    </strong>
+
                     <span>
                         <?= htmlspecialchars($appVersion) ?>
                     </span>
+
                 </div>
 
+
                 <div>
-                    <strong>AI</strong>
+
+                    <strong>
+                        AI
+                    </strong>
+
                     <span>
                         Gemini
                     </span>
+
                 </div>
 
             </div>
@@ -696,15 +880,18 @@ $appVersion = '1.0.0';
 </div>
 
 
-<!-- TOAST -->
+<!-- ================= TOAST ================= -->
+
 <div
     id="toast"
     class="toast"
 ></div>
 
 
+<!-- ================= JAVASCRIPT ================= -->
+
 <script
-    src="/assets/app.js?v=100"
+    src="/assets/app.js?v=101"
     defer
 ></script>
 
