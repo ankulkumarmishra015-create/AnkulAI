@@ -1,23 +1,26 @@
 "use strict";
 
 /* =========================================================
-   ANKUL AI — FRONTEND CONTROLLER
+   ANKUL AI — ADVANCED FRONTEND CONTROLLER
    ========================================================= */
 
 const state = {
     messages: [],
     isLoading: false,
     isListening: false,
+
     theme: localStorage.getItem("ankul_theme") || "dark",
+
     enterToSend:
         localStorage.getItem("ankul_enter_send") !== "false",
+
     showTimestamps:
         localStorage.getItem("ankul_timestamps") === "true"
 };
 
 
 /* =========================================================
-   DOM
+   DOM HELPERS
    ========================================================= */
 
 const $ = (selector) =>
@@ -27,62 +30,78 @@ const $$ = (selector) =>
     document.querySelectorAll(selector);
 
 
-const chatForm =
-    $("#chatForm");
+/* =========================================================
+   DOM ELEMENTS
+   ========================================================= */
 
-const messageInput =
-    $("#messageInput");
+const chatForm = $("#chatForm");
+const messageInput = $("#messageInput");
+const sendButton = $("#sendButton");
+const messages = $("#messages");
+const welcomeScreen = $("#welcomeScreen");
+const typingIndicator = $("#typingIndicator");
+const chatContainer = $("#chatContainer");
 
-const sendButton =
-    $("#sendButton");
+const sidebar = $("#sidebar");
+const sidebarOverlay = $("#sidebarOverlay");
 
-const messages =
-    $("#messages");
-
-const welcomeScreen =
-    $("#welcomeScreen");
-
-const typingIndicator =
-    $("#typingIndicator");
-
-const chatContainer =
-    $("#chatContainer");
-
-const sidebar =
-    $("#sidebar");
-
-const toast =
-    $("#toast");
+const toast = $("#toast");
 
 
 /* =========================================================
    INITIALIZATION
    ========================================================= */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+document.addEventListener("DOMContentLoaded", () => {
 
-        applyTheme(
-            state.theme
-        );
+    /* Make sure hidden elements actually stay hidden */
+    if (!document.getElementById("ankul-hidden-style")) {
 
-        setupInput();
+        const style = document.createElement("style");
 
-        setupSuggestions();
+        style.id = "ankul-hidden-style";
 
-        setupSidebar();
+        style.textContent = `
+            .hidden {
+                display: none !important;
+            }
 
-        setupTheme();
+            .mobile-only {
+                display: none;
+            }
 
-        setupModals();
+            @media (max-width: 700px) {
+                .mobile-only {
+                    display: grid;
+                }
+            }
+        `;
 
-        setupVoice();
-
-        updateSendButton();
-
+        document.head.appendChild(style);
     }
-);
+
+
+    applyTheme(state.theme);
+
+    setupInput();
+
+    setupSuggestions();
+
+    setupSidebar();
+
+    setupTheme();
+
+    setupModals();
+
+    setupVoice();
+
+    setupAttach();
+
+    restoreSettings();
+
+    updateSendButton();
+
+});
 
 
 /* =========================================================
@@ -91,77 +110,92 @@ document.addEventListener(
 
 function setupInput() {
 
-    messageInput.addEventListener(
-        "input",
-        () => {
-
-            autoResize();
-
-            updateSendButton();
-
-        }
-    );
+    if (!messageInput || !chatForm) {
+        return;
+    }
 
 
-    messageInput.addEventListener(
-        "keydown",
-        (event) => {
+    messageInput.addEventListener("input", () => {
+
+        autoResize();
+
+        updateSendButton();
+
+    });
+
+
+    messageInput.addEventListener("keydown", (event) => {
+
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            state.enterToSend
+        ) {
+
+            event.preventDefault();
 
             if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                state.enterToSend
+                !state.isLoading &&
+                messageInput.value.trim()
             ) {
 
-                event.preventDefault();
-
-                if (
-                    !state.isLoading &&
-                    messageInput.value.trim()
-                ) {
-
-                    sendMessage();
-
-                }
+                sendMessage();
 
             }
 
         }
-    );
+
+    });
 
 
-    chatForm.addEventListener(
-        "submit",
-        (event) => {
+    chatForm.addEventListener("submit", (event) => {
 
-            event.preventDefault();
+        event.preventDefault();
 
-            sendMessage();
+        sendMessage();
 
-        }
-    );
+    });
 
 }
 
 
+/* =========================================================
+   AUTO RESIZE
+   ========================================================= */
+
 function autoResize() {
 
-    messageInput.style.height =
-        "auto";
+    if (!messageInput) {
+        return;
+    }
+
+
+    messageInput.style.height = "auto";
+
 
     messageInput.style.height =
         Math.min(
             messageInput.scrollHeight,
-            180
+            160
         ) + "px";
 
 }
 
 
+/* =========================================================
+   SEND BUTTON
+   ========================================================= */
+
 function updateSendButton() {
+
+    if (!sendButton || !messageInput) {
+        return;
+    }
+
 
     const hasText =
         messageInput.value.trim().length > 0;
+
 
     sendButton.disabled =
         !hasText ||
@@ -174,9 +208,7 @@ function updateSendButton() {
    SEND MESSAGE
    ========================================================= */
 
-async function sendMessage(
-    customPrompt = null
-) {
+async function sendMessage(customPrompt = null) {
 
     if (state.isLoading) {
         return;
@@ -184,8 +216,9 @@ async function sendMessage(
 
 
     const text =
-        customPrompt ??
-        messageInput.value.trim();
+        customPrompt !== null
+            ? customPrompt.trim()
+            : messageInput.value.trim();
 
 
     if (!text) {
@@ -193,24 +226,35 @@ async function sendMessage(
     }
 
 
-    addMessage(
-        "user",
-        text
-    );
+    /*
+     * Save history BEFORE adding the new message.
+     * This avoids sending the current user message twice.
+     */
+
+    const historyForAPI =
+        state.messages.slice(-12);
 
 
-    messageInput.value = "";
+    addMessage("user", text);
 
-    autoResize();
+
+    if (messageInput) {
+
+        messageInput.value = "";
+
+        autoResize();
+
+    }
+
 
     updateSendButton();
 
-
     state.isLoading = true;
 
-    showTyping(true);
 
     hideWelcome();
+
+    showTyping(true);
 
     scrollToBottom();
 
@@ -218,24 +262,21 @@ async function sendMessage(
     try {
 
         const response =
-            await fetch(
-                "api/chat.php",
-                {
-                    method: "POST",
+            await fetch("api/chat.php", {
+                method: "POST",
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
 
-                    body: JSON.stringify({
-                        message: text,
-                        history:
-                            state.messages
-                                .slice(-12)
-                    })
-                }
-            );
+                body: JSON.stringify({
+                    message: text,
+
+                    history:
+                        historyForAPI
+                })
+            });
 
 
         if (!response.ok) {
@@ -265,7 +306,7 @@ async function sendMessage(
 
 
         addMessage(
-            "ai",
+            "assistant",
             data.message
         );
 
@@ -279,7 +320,7 @@ async function sendMessage(
 
 
         addMessage(
-            "ai",
+            "assistant",
             "Sorry, I couldn't process that request right now. Please check the server/API configuration and try again."
         );
 
@@ -287,6 +328,7 @@ async function sendMessage(
         showToast(
             "Unable to connect to Ankul AI."
         );
+
 
     } finally {
 
@@ -307,58 +349,93 @@ async function sendMessage(
    MESSAGE RENDERING
    ========================================================= */
 
-function addMessage(
-    role,
-    text
-) {
+function addMessage(role, text) {
+
+    const timestamp =
+        new Date();
+
 
     const message = {
-        role,
+        role: role,
         content: text,
-        timestamp:
-            new Date().toISOString()
+        timestamp: timestamp.toISOString()
     };
 
 
-    state.messages.push(
-        message
-    );
+    state.messages.push(message);
+
+
+    if (!messages) {
+        return;
+    }
 
 
     const element =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
+
+
+    /*
+     * CSS uses "assistant", not "ai".
+     */
+
+    const cssRole =
+        role === "user"
+            ? "user"
+            : "assistant";
 
 
     element.className =
-        `message ${role}`;
+        `message ${cssRole}`;
 
 
-    if (role === "ai") {
+    if (cssRole === "assistant") {
 
         element.innerHTML = `
-            <div class="ai-avatar">A</div>
+            <div class="message-avatar">
+                A
+            </div>
 
-            <div class="message-content">
+            <div class="message-body">
                 ${formatMessage(text)}
+
+                ${
+                    state.showTimestamps
+                        ? `
+                            <div class="message-time">
+                                ${formatTime(timestamp)}
+                            </div>
+                          `
+                        : ""
+                }
             </div>
         `;
 
     } else {
 
         element.innerHTML = `
-            <div class="message-content">
+            <div class="message-body">
                 ${escapeHTML(text)}
+
+                ${
+                    state.showTimestamps
+                        ? `
+                            <div class="message-time">
+                                ${formatTime(timestamp)}
+                            </div>
+                          `
+                        : ""
+                }
+            </div>
+
+            <div class="message-avatar">
+                A
             </div>
         `;
 
     }
 
 
-    messages.appendChild(
-        element
-    );
+    messages.appendChild(element);
 
 
     scrollToBottom();
@@ -366,11 +443,19 @@ function addMessage(
 }
 
 
+/* =========================================================
+   FORMAT AI MESSAGE
+   ========================================================= */
+
 function formatMessage(text) {
 
     let safe =
         escapeHTML(text);
 
+
+    /*
+     * Code blocks
+     */
 
     safe =
         safe.replace(
@@ -379,12 +464,31 @@ function formatMessage(text) {
         );
 
 
+    /*
+     * Bold
+     */
+
     safe =
         safe.replace(
             /\*\*(.*?)\*\*/g,
             "<strong>$1</strong>"
         );
 
+
+    /*
+     * Inline code
+     */
+
+    safe =
+        safe.replace(
+            /`([^`]+)`/g,
+            "<code>$1</code>"
+        );
+
+
+    /*
+     * New lines
+     */
 
     safe =
         safe.replace(
@@ -397,6 +501,10 @@ function formatMessage(text) {
 
 }
 
+
+/* =========================================================
+   ESCAPE HTML
+   ========================================================= */
 
 function escapeHTML(value) {
 
@@ -411,6 +519,23 @@ function escapeHTML(value) {
 
 
 /* =========================================================
+   TIMESTAMP
+   ========================================================= */
+
+function formatTime(date) {
+
+    return date.toLocaleTimeString(
+        [],
+        {
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+
+}
+
+
+/* =========================================================
    WELCOME
    ========================================================= */
 
@@ -420,8 +545,8 @@ function hideWelcome() {
         return;
     }
 
-    welcomeScreen.style.display =
-        "none";
+
+    welcomeScreen.style.display = "none";
 
 }
 
@@ -432,8 +557,8 @@ function showWelcome() {
         return;
     }
 
-    welcomeScreen.style.display =
-        "";
+
+    welcomeScreen.style.display = "";
 
 }
 
@@ -445,31 +570,33 @@ function showWelcome() {
 function setupSuggestions() {
 
     $$(".suggestion-card")
-        .forEach(
-            (button) => {
+        .forEach((button) => {
 
-                button.addEventListener(
-                    "click",
-                    () => {
+            button.addEventListener(
+                "click",
+                () => {
 
-                        const prompt =
-                            button.dataset.prompt;
+                    const prompt =
+                        button.dataset.prompt;
 
-                        sendMessage(
-                            prompt
-                        );
 
+                    if (!prompt) {
+                        return;
                     }
-                );
 
-            }
-        );
+
+                    sendMessage(prompt);
+
+                }
+            );
+
+        });
 
 }
 
 
 /* =========================================================
-   TYPING
+   TYPING INDICATOR
    ========================================================= */
 
 function showTyping(show) {
@@ -477,6 +604,12 @@ function showTyping(show) {
     if (!typingIndicator) {
         return;
     }
+
+
+    typingIndicator.classList.toggle(
+        "active",
+        show
+    );
 
 
     typingIndicator.classList.toggle(
@@ -493,19 +626,19 @@ function showTyping(show) {
 
 function scrollToBottom() {
 
-    requestAnimationFrame(
-        () => {
+    if (!chatContainer) {
+        return;
+    }
 
-            chatContainer.scrollTo({
-                top:
-                    chatContainer.scrollHeight,
 
-                behavior:
-                    "smooth"
-            });
+    requestAnimationFrame(() => {
 
-        }
-    );
+        chatContainer.scrollTo({
+            top: chatContainer.scrollHeight,
+            behavior: "smooth"
+        });
+
+    });
 
 }
 
@@ -515,32 +648,48 @@ function scrollToBottom() {
    ========================================================= */
 
 $("#newChatButton")
-    ?.addEventListener(
-        "click",
-        () => {
+    ?.addEventListener("click", () => {
 
-            state.messages = [];
+        if (state.isLoading) {
 
+            showToast(
+                "Please wait for the current response."
+            );
+
+            return;
+
+        }
+
+
+        state.messages = [];
+
+
+        if (messages) {
             messages.innerHTML = "";
+        }
 
-            showWelcome();
+
+        showWelcome();
+
+
+        if (messageInput) {
 
             messageInput.value = "";
 
             autoResize();
 
-            updateSendButton();
-
-            showToast(
-                "New chat started."
-            );
-
-            sidebar.classList.remove(
-                "open"
-            );
-
         }
-    );
+
+
+        updateSendButton();
+
+        closeSidebar();
+
+        showToast(
+            "New chat started."
+        );
+
+    });
 
 
 /* =========================================================
@@ -552,27 +701,40 @@ function setupSidebar() {
     $("#menuButton")
         ?.addEventListener(
             "click",
-            () => {
-
-                sidebar.classList.add(
-                    "open"
-                );
-
-            }
+            openSidebar
         );
 
 
     $("#closeSidebar")
         ?.addEventListener(
             "click",
-            () => {
-
-                sidebar.classList.remove(
-                    "open"
-                );
-
-            }
+            closeSidebar
         );
+
+
+    sidebarOverlay
+        ?.addEventListener(
+            "click",
+            closeSidebar
+        );
+
+}
+
+
+function openSidebar() {
+
+    sidebar?.classList.add("open");
+
+    sidebarOverlay?.classList.add("active");
+
+}
+
+
+function closeSidebar() {
+
+    sidebar?.classList.remove("open");
+
+    sidebarOverlay?.classList.remove("active");
 
 }
 
@@ -593,32 +755,35 @@ function setupTheme() {
                         ? "light"
                         : "dark";
 
+
                 applyTheme(next);
 
             }
         );
 
 
-    $$(".theme-option")
-        .forEach(
-            (button) => {
+    $$(".theme-button")
+        .forEach((button) => {
 
-                button.addEventListener(
-                    "click",
-                    () => {
+            button.addEventListener(
+                "click",
+                () => {
 
-                        applyTheme(
-                            button.dataset.theme
-                        );
+                    applyTheme(
+                        button.dataset.theme
+                    );
 
-                    }
-                );
+                }
+            );
 
-            }
-        );
+        });
 
 }
 
+
+/* =========================================================
+   APPLY THEME
+   ========================================================= */
 
 function applyTheme(theme) {
 
@@ -640,18 +805,16 @@ function applyTheme(theme) {
     );
 
 
-    $$(".theme-option")
-        .forEach(
-            (button) => {
+    $$(".theme-button")
+        .forEach((button) => {
 
-                button.classList.toggle(
-                    "active",
-                    button.dataset.theme ===
-                        state.theme
-                );
+            button.classList.toggle(
+                "active",
+                button.dataset.theme ===
+                    state.theme
+            );
 
-            }
-        );
+        });
 
 }
 
@@ -669,14 +832,20 @@ function setupModals() {
         $("#aboutModal");
 
 
+    /*
+     * SETTINGS
+     */
+
     $("#settingsButton")
         ?.addEventListener(
             "click",
             () => {
 
-                settingsModal.classList.remove(
-                    "hidden"
-                );
+                settingsModal
+                    ?.classList
+                    .remove("hidden");
+
+                closeSidebar();
 
             }
         );
@@ -685,24 +854,24 @@ function setupModals() {
     $("#closeSettings")
         ?.addEventListener(
             "click",
-            () => {
-
-                settingsModal.classList.add(
-                    "hidden"
-                );
-
-            }
+            closeSettings
         );
 
+
+    /*
+     * ABOUT
+     */
 
     $("#aboutButton")
         ?.addEventListener(
             "click",
             () => {
 
-                aboutModal.classList.remove(
-                    "hidden"
-                );
+                aboutModal
+                    ?.classList
+                    .remove("hidden");
+
+                closeSidebar();
 
             }
         );
@@ -711,44 +880,59 @@ function setupModals() {
     $("#closeAbout")
         ?.addEventListener(
             "click",
-            () => {
-
-                aboutModal.classList.add(
-                    "hidden"
-                );
-
-            }
+            closeAbout
         );
 
 
-    $$(".modal-backdrop")
-        .forEach(
-            (backdrop) => {
+    /*
+     * Click outside modal
+     */
 
-                backdrop.addEventListener(
-                    "click",
-                    () => {
+    [settingsModal, aboutModal]
+        .forEach((modal) => {
 
-                        backdrop
-                            .parentElement
-                            .classList.add(
-                                "hidden"
-                            );
+            modal?.addEventListener(
+                "click",
+                (event) => {
+
+                    if (
+                        event.target === modal
+                    ) {
+
+                        modal.classList.add(
+                            "hidden"
+                        );
 
                     }
-                );
 
-            }
-        );
+                }
+            );
 
+        });
+
+
+    /*
+     * Enter to send
+     */
 
     $("#enterToSend")
         ?.addEventListener(
-            "change",
+            "click",
             (event) => {
 
+                const button =
+                    event.currentTarget;
+
+
                 state.enterToSend =
-                    event.target.checked;
+                    !state.enterToSend;
+
+
+                updateToggle(
+                    button,
+                    state.enterToSend
+                );
+
 
                 localStorage.setItem(
                     "ankul_enter_send",
@@ -759,21 +943,169 @@ function setupModals() {
         );
 
 
+    /*
+     * Show timestamps
+     */
+
     $("#showTimestamps")
         ?.addEventListener(
-            "change",
+            "click",
             (event) => {
 
+                const button =
+                    event.currentTarget;
+
+
                 state.showTimestamps =
-                    event.target.checked;
+                    !state.showTimestamps;
+
+
+                updateToggle(
+                    button,
+                    state.showTimestamps
+                );
+
 
                 localStorage.setItem(
                     "ankul_timestamps",
                     state.showTimestamps
                 );
 
+
+                rerenderMessages();
+
             }
         );
+
+
+    /*
+     * ESC closes modal
+     */
+
+    document.addEventListener(
+        "keydown",
+        (event) => {
+
+            if (event.key !== "Escape") {
+                return;
+            }
+
+
+            closeSettings();
+
+            closeAbout();
+
+            closeSidebar();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   MODAL HELPERS
+   ========================================================= */
+
+function closeSettings() {
+
+    $("#settingsModal")
+        ?.classList
+        .add("hidden");
+
+}
+
+
+function closeAbout() {
+
+    $("#aboutModal")
+        ?.classList
+        .add("hidden");
+
+}
+
+
+/* =========================================================
+   TOGGLE UI
+   ========================================================= */
+
+function updateToggle(button, active) {
+
+    if (!button) {
+        return;
+    }
+
+
+    button.classList.toggle(
+        "active",
+        active
+    );
+
+
+    button.setAttribute(
+        "aria-pressed",
+        String(active)
+    );
+
+}
+
+
+/* =========================================================
+   RESTORE SETTINGS
+   ========================================================= */
+
+function restoreSettings() {
+
+    const enterButton =
+        $("#enterToSend");
+
+    const timestampButton =
+        $("#showTimestamps");
+
+
+    updateToggle(
+        enterButton,
+        state.enterToSend
+    );
+
+
+    updateToggle(
+        timestampButton,
+        state.showTimestamps
+    );
+
+}
+
+
+/* =========================================================
+   RERENDER MESSAGES
+   ========================================================= */
+
+function rerenderMessages() {
+
+    if (!messages) {
+        return;
+    }
+
+
+    messages.innerHTML = "";
+
+
+    const savedMessages =
+        [...state.messages];
+
+
+    state.messages = [];
+
+
+    savedMessages.forEach((message) => {
+
+        addMessage(
+            message.role,
+            message.content
+        );
+
+    });
 
 }
 
@@ -822,26 +1154,28 @@ function setupVoice() {
         false;
 
 
-    recognition.onstart =
-        () => {
+    recognition.onstart = () => {
 
-            state.isListening = true;
+        state.isListening = true;
 
-            button.classList.add(
-                "listening"
-            );
 
-            showToast(
-                "Listening..."
-            );
+        button.classList.add(
+            "listening"
+        );
 
-        };
+
+        showToast(
+            "Listening..."
+        );
+
+    };
 
 
     recognition.onresult =
         (event) => {
 
             let transcript = "";
+
 
             for (
                 let i = event.resultIndex;
@@ -851,107 +1185,4 @@ function setupVoice() {
 
                 transcript +=
                     event.results[i][0]
-                        .transcript;
-
-            }
-
-
-            messageInput.value =
-                transcript;
-
-            autoResize();
-
-            updateSendButton();
-
-        };
-
-
-    recognition.onend =
-        () => {
-
-            state.isListening = false;
-
-            button.classList.remove(
-                "listening"
-            );
-
-        };
-
-
-    recognition.onerror =
-        () => {
-
-            state.isListening = false;
-
-            button.classList.remove(
-                "listening"
-            );
-
-            showToast(
-                "Voice input failed."
-            );
-
-        };
-
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            if (state.isListening) {
-
-                recognition.stop();
-
-                return;
-
-            }
-
-            recognition.start();
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   TOAST
-   ========================================================= */
-
-let toastTimer = null;
-
-
-function showToast(message) {
-
-    if (!toast) {
-        return;
-    }
-
-
-    toast.textContent =
-        message;
-
-
-    toast.classList.add(
-        "show"
-    );
-
-
-    clearTimeout(
-        toastTimer
-    );
-
-
-    toastTimer =
-        setTimeout(
-            () => {
-
-                toast.classList.remove(
-                    "show"
-                );
-
-            },
-            2600
-        );
-
-          }
+                        .transcr
