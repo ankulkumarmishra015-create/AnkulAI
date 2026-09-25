@@ -1,31 +1,58 @@
 (() => {
     "use strict";
 
+    /* =========================================================
+       ANKUL AI - ADVANCED FRONTEND
+       ========================================================= */
+
     const state = {
         messages: [],
         isLoading: false,
         isListening: false,
-        selectedModel: localStorage.getItem("ankul_model") || "gemini-3.8-flash",
-        theme: localStorage.getItem("ankul_theme") || "dark",
-        enterToSend: localStorage.getItem("ankul_enter_send") !== "false",
-        timestamps: localStorage.getItem("ankul_timestamps") === "true"
+        selectedModel:
+            localStorage.getItem("ankul_model") ||
+            "gemini-3.8-flash",
+        theme:
+            localStorage.getItem("ankul_theme") ||
+            "dark",
+        enterToSend:
+            localStorage.getItem("ankul_enter_send") !== "false",
+        timestamps:
+            localStorage.getItem("ankul_timestamps") === "true",
+        savedMessages:
+            JSON.parse(
+                localStorage.getItem("ankul_saved_messages") || "[]"
+            ),
+        controller: null,
+        attachedFiles: []
     };
 
-    const $ = (selector) => document.querySelector(selector);
-    const $$ = (selector) => [...document.querySelectorAll(selector)];
+    const $ = (selector) =>
+        document.querySelector(selector);
+
+    const $$ = (selector) =>
+        [...document.querySelectorAll(selector)];
+
+
+    /* =========================================================
+       BASIC HELPERS
+       ========================================================= */
 
     function toast(message) {
         const el = $("#toast");
+
         if (!el) return;
 
         el.textContent = message;
         el.classList.add("show");
 
         clearTimeout(window.__ankulToast);
+
         window.__ankulToast = setTimeout(() => {
             el.classList.remove("show");
         }, 2200);
     }
+
 
     function escapeHTML(text) {
         return String(text ?? "")
@@ -36,24 +63,143 @@
             .replace(/'/g, "&#039;");
     }
 
-    function formatMessage(text) {
-        let html = escapeHTML(text);
 
-        html = html.replace(
-            /```([\s\S]*?)```/g,
-            '<pre><code>$1</code></pre>'
+    function formatMessage(text) {
+        let value = String(text ?? "");
+
+        const codeBlocks = [];
+
+        value = value.replace(
+            /```(\w*)\n?([\s\S]*?)```/g,
+            (_, language, code) => {
+                const id = "code_" + Math.random()
+                    .toString(36)
+                    .slice(2);
+
+                codeBlocks.push({
+                    id,
+                    language: language || "code",
+                    code
+                });
+
+                return `___CODEBLOCK_${codeBlocks.length - 1}___`;
+            }
         );
 
-        html = html.replace(
+        value = escapeHTML(value);
+
+        value = value.replace(
             /`([^`]+)`/g,
             "<code>$1</code>"
         );
 
-        html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-        html = html.replace(/\n/g, "<br>");
+        value = value.replace(
+            /\*\*(.*?)\*\*/g,
+            "<strong>$1</strong>"
+        );
 
-        return html;
+        value = value.replace(
+            /\*(.*?)\*/g,
+            "<em>$1</em>"
+        );
+
+        value = value.replace(
+            /^### (.*)$/gm,
+            "<h4>$1</h4>"
+        );
+
+        value = value.replace(
+            /^## (.*)$/gm,
+            "<h3>$1</h3>"
+        );
+
+        value = value.replace(
+            /^# (.*)$/gm,
+            "<h2>$1</h2>"
+        );
+
+        value = value.replace(
+            /^\s*[-*] (.*)$/gm,
+            "• $1"
+        );
+
+        value = value.replace(
+            /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+
+        value = value.replace(
+            /\n/g,
+            "<br>"
+        );
+
+        codeBlocks.forEach((block, index) => {
+            const code = escapeHTML(block.code);
+
+            const html = `
+                <div class="ankul-code-block"
+                     style="
+                        margin:10px 0;
+                        border:1px solid rgba(255,255,255,.12);
+                        border-radius:10px;
+                        overflow:hidden;
+                        background:rgba(0,0,0,.25);
+                     ">
+
+                    <div style="
+                        display:flex;
+                        justify-content:space-between;
+                        align-items:center;
+                        padding:7px 10px;
+                        font-size:11px;
+                        opacity:.75;
+                        border-bottom:1px solid rgba(255,255,255,.08);
+                     ">
+
+                        <span>${escapeHTML(block.language)}</span>
+
+                        <button
+                            type="button"
+                            class="copy-code-button"
+                            data-code="${encodeURIComponent(block.code)}"
+                            style="
+                                cursor:pointer;
+                                border:0;
+                                border-radius:6px;
+                                padding:4px 8px;
+                                background:rgba(255,255,255,.08);
+                                color:inherit;
+                            "
+                        >
+                            Copy
+                        </button>
+
+                    </div>
+
+                    <pre style="
+                        margin:0;
+                        padding:12px;
+                        overflow:auto;
+                        font-size:12px;
+                        line-height:1.55;
+                     "><code>${code}</code></pre>
+
+                </div>
+            `;
+
+            value = value.replace(
+                `___CODEBLOCK_${index}___`,
+                html
+            );
+        });
+
+        return value;
     }
+
+
+    /* =========================================================
+       STORAGE
+       ========================================================= */
 
     function saveState() {
         localStorage.setItem(
@@ -62,21 +208,42 @@
         );
     }
 
+
     function loadState() {
         try {
-            const saved = localStorage.getItem("ankul_messages");
+            const saved =
+                localStorage.getItem("ankul_messages");
 
-            if (saved) {
-                state.messages = JSON.parse(saved);
-
-                if (!Array.isArray(state.messages)) {
-                    state.messages = [];
-                }
+            if (!saved) {
+                state.messages = [];
+                return;
             }
-        } catch {
+
+            const parsed = JSON.parse(saved);
+
+            state.messages =
+                Array.isArray(parsed)
+                    ? parsed
+                    : [];
+
+        } catch (error) {
+            console.error(error);
             state.messages = [];
         }
     }
+
+
+    function saveSavedMessages() {
+        localStorage.setItem(
+            "ankul_saved_messages",
+            JSON.stringify(state.savedMessages)
+        );
+    }
+
+
+    /* =========================================================
+       THEME
+       ========================================================= */
 
     function applyTheme() {
         document.documentElement.setAttribute(
@@ -89,93 +256,273 @@
             state.theme === "light"
         );
 
-        localStorage.setItem("ankul_theme", state.theme);
-
-        const switchEl = $("#darkModeSwitch");
-
-        if (switchEl) {
-            switchEl.checked = state.theme === "dark";
-        }
+        localStorage.setItem(
+            "ankul_theme",
+            state.theme
+        );
     }
 
+
+    /* =========================================================
+       MODEL
+       ========================================================= */
+
     function updateModelUI() {
-        const selected = $("#selectedModel");
+        const selected =
+            $("#selectedModel");
 
         if (selected) {
-            selected.textContent = state.selectedModel;
+            selected.textContent =
+                state.selectedModel;
         }
 
         $$(".model-option").forEach((item) => {
             item.classList.toggle(
                 "active",
-                item.dataset.model === state.selectedModel
+                item.dataset.model ===
+                    state.selectedModel
             );
         });
     }
 
-    function showWelcome() {
-        const welcome = $("#welcomeScreen");
-        const messages = $("#messages");
 
-        if (welcome) welcome.hidden = state.messages.length > 0;
-        if (messages) messages.hidden = state.messages.length === 0;
+    function closeModelMenu() {
+        const menu = $("#modelMenu");
+
+        if (menu) {
+            menu.hidden = true;
+        }
     }
 
+
+    function setupModelSelector() {
+        const button =
+            $("#modelButton");
+
+        const menu =
+            $("#modelMenu");
+
+        if (!button || !menu) return;
+
+        button.addEventListener(
+            "click",
+            (event) => {
+                event.stopPropagation();
+
+                menu.hidden =
+                    !menu.hidden;
+            }
+        );
+
+        menu.addEventListener(
+            "click",
+            (event) => {
+                const option =
+                    event.target.closest(
+                        "[data-model]"
+                    );
+
+                if (!option) return;
+
+                state.selectedModel =
+                    option.dataset.model;
+
+                localStorage.setItem(
+                    "ankul_model",
+                    state.selectedModel
+                );
+
+                updateModelUI();
+                closeModelMenu();
+
+                toast(
+                    "Model: " +
+                    state.selectedModel
+                );
+            }
+        );
+
+        document.addEventListener(
+            "click",
+            (event) => {
+                if (
+                    !menu.contains(event.target) &&
+                    !button.contains(event.target)
+                ) {
+                    closeModelMenu();
+                }
+            }
+        );
+    }
+
+
+    /* =========================================================
+       WELCOME / CHAT
+       ========================================================= */
+
+    function showWelcome() {
+        const welcome =
+            $("#welcomeScreen");
+
+        const messages =
+            $("#messages");
+
+        if (!welcome || !messages) return;
+
+        welcome.hidden =
+            state.messages.length > 0;
+
+        messages.hidden =
+            state.messages.length === 0;
+    }
+
+
     function renderMessages() {
-        const container = $("#messages");
+        const container =
+            $("#messages");
 
         if (!container) return;
 
         container.innerHTML = "";
 
-        state.messages.forEach((message) => {
-            const item = document.createElement("div");
+        state.messages.forEach(
+            (message, index) => {
 
-            item.className =
-                message.role === "user"
-                    ? "message user-message"
-                    : "message assistant-message";
+                const item =
+                    document.createElement("div");
 
-            const time = message.time
-                ? new Date(message.time).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit"
-                  })
-                : "";
+                item.className =
+                    message.role === "user"
+                        ? "message user-message"
+                        : "message assistant-message";
 
-            item.innerHTML = `
-                <div class="message-avatar">
-                    ${message.role === "user" ? "U" : "A"}
-                </div>
+                const time =
+                    message.time
+                        ? new Date(
+                              message.time
+                          ).toLocaleTimeString(
+                              [],
+                              {
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                              }
+                          )
+                        : "";
 
-                <div class="message-content">
-                    <div class="message-name">
-                        ${message.role === "user" ? "You" : "Ankul AI"}
+                item.innerHTML = `
+                    <div class="message-avatar">
+                        ${
+                            message.role === "user"
+                                ? "U"
+                                : "A"
+                        }
                     </div>
 
-                    <div class="message-text">
-                        ${formatMessage(message.content)}
+                    <div class="message-content">
+
+                        <div class="message-name">
+                            ${
+                                message.role === "user"
+                                    ? "You"
+                                    : "Ankul AI"
+                            }
+                        </div>
+
+                        <div class="message-text">
+                            ${formatMessage(
+                                message.content
+                            )}
+                        </div>
+
+                        ${
+                            state.timestamps && time
+                                ? `
+                                    <div class="message-time">
+                                        ${time}
+                                    </div>
+                                  `
+                                : ""
+                        }
+
+                        <div
+                            class="message-tools"
+                            style="
+                                display:flex;
+                                gap:5px;
+                                margin-top:8px;
+                                flex-wrap:wrap;
+                            "
+                        >
+
+                            <button
+                                type="button"
+                                class="message-tool"
+                                data-action="copy"
+                                data-index="${index}"
+                                title="Copy"
+                            >
+                                📋
+                            </button>
+
+                            ${
+                                message.role ===
+                                "assistant"
+                                    ? `
+                                    <button
+                                        type="button"
+                                        class="message-tool"
+                                        data-action="regenerate"
+                                        data-index="${index}"
+                                        title="Regenerate"
+                                    >
+                                        🔄
+                                    </button>
+                                    `
+                                    : ""
+                            }
+
+                            <button
+                                type="button"
+                                class="message-tool"
+                                data-action="save"
+                                data-index="${index}"
+                                title="Save"
+                            >
+                                💾
+                            </button>
+
+                            <button
+                                type="button"
+                                class="message-tool"
+                                data-action="delete"
+                                data-index="${index}"
+                                title="Delete"
+                            >
+                                🗑️
+                            </button>
+
+                        </div>
+
                     </div>
+                `;
 
-                    ${
-                        state.timestamps && time
-                            ? `<div class="message-time">${time}</div>`
-                            : ""
-                    }
-                </div>
-            `;
-
-            container.appendChild(item);
-        });
+                container.appendChild(item);
+            }
+        );
 
         showWelcome();
 
         requestAnimationFrame(() => {
-            container.scrollTop = container.scrollHeight;
+            container.scrollTop =
+                container.scrollHeight;
         });
     }
 
-    function addMessage(role, content) {
+
+    function addMessage(
+        role,
+        content
+    ) {
         state.messages.push({
             role,
             content,
@@ -187,11 +534,19 @@
         renderHistory();
     }
 
+
+    /* =========================================================
+       LOADING / STOP
+       ========================================================= */
+
     function setLoading(value) {
         state.isLoading = value;
 
-        const typing = $("#typingIndicator");
-        const send = $("#sendButton");
+        const typing =
+            $("#typingIndicator");
+
+        const send =
+            $("#sendButton");
 
         if (typing) {
             typing.hidden = !value;
@@ -199,17 +554,49 @@
 
         if (send) {
             send.disabled = value;
+
+            send.textContent =
+                value ? "■" : "➤";
         }
     }
+
+
+    function stopGeneration() {
+        if (!state.controller) {
+            return;
+        }
+
+        state.controller.abort();
+
+        state.controller = null;
+
+        setLoading(false);
+
+        toast("Generation stopped");
+    }
+
+
+    /* =========================================================
+       SEND MESSAGE
+       ========================================================= */
 
     async function sendMessage(text) {
         text = String(text || "").trim();
 
-        if (!text || state.isLoading) return;
+        if (!text) return;
 
-        addMessage("user", text);
+        if (state.isLoading) {
+            stopGeneration();
+            return;
+        }
 
-        const input = $("#messageInput");
+        addMessage(
+            "user",
+            text
+        );
+
+        const input =
+            $("#messageInput");
 
         if (input) {
             input.value = "";
@@ -218,35 +605,56 @@
 
         setLoading(true);
 
-        try {
-            const history = state.messages
-                .slice(0, -1)
-                .map((m) => ({
-                    role: m.role,
-                    content: m.content
-                }));
+        state.controller =
+            new AbortController();
 
-            const response = await fetch("/api/chat.php", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    message: text,
-                    history: history,
-                    model: state.selectedModel
-                })
-            });
+        try {
+            const history =
+                state.messages
+                    .slice(0, -1)
+                    .map((m) => ({
+                        role: m.role,
+                        content: m.content
+                    }));
+
+            const response =
+                await fetch(
+                    "/api/chat.php",
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+                            message: text,
+                            history,
+                            model:
+                                state.selectedModel
+                        }),
+
+                        signal:
+                            state.controller.signal
+                    }
+                );
 
             let data;
 
             try {
-                data = await response.json();
+                data =
+                    await response.json();
             } catch {
-                throw new Error("Server returned an invalid response.");
+                throw new Error(
+                    "Server returned invalid JSON."
+                );
             }
 
-            if (!response.ok || !data.success) {
+            if (
+                !response.ok ||
+                !data.success
+            ) {
                 throw new Error(
                     data.message ||
                     data.error ||
@@ -256,11 +664,23 @@
 
             addMessage(
                 "assistant",
-                data.message || "No response received."
+                data.message ||
+                    "No response received."
             );
 
         } catch (error) {
-            console.error("Ankul AI error:", error);
+
+            if (
+                error.name ===
+                "AbortError"
+            ) {
+                return;
+            }
+
+            console.error(
+                "Ankul AI:",
+                error
+            );
 
             addMessage(
                 "assistant",
@@ -268,11 +688,18 @@
                 "Please check your Gemini API configuration and try again."
             );
 
-            toast("AI response failed");
+            toast(
+                "AI response failed"
+            );
+
         } finally {
+
+            state.controller = null;
+
             setLoading(false);
 
-            const input = $("#messageInput");
+            const input =
+                $("#messageInput");
 
             if (input) {
                 input.focus();
@@ -280,15 +707,32 @@
         }
     }
 
+
+    /* =========================================================
+       NEW CHAT
+       ========================================================= */
+
     function newChat() {
+        if (
+            state.messages.length &&
+            !confirm(
+                "Start a new chat?"
+            )
+        ) {
+            return;
+        }
+
         state.messages = [];
 
-        localStorage.removeItem("ankul_messages");
+        localStorage.removeItem(
+            "ankul_messages"
+        );
 
         renderMessages();
         renderHistory();
 
-        const input = $("#messageInput");
+        const input =
+            $("#messageInput");
 
         if (input) {
             input.value = "";
@@ -298,11 +742,21 @@
         closeModelMenu();
         closeSidebar();
 
-        toast("New chat started");
+        toast(
+            "New chat started"
+        );
     }
 
-    function renderHistory() {
-        const list = $("#historyList");
+
+    /* =========================================================
+       HISTORY
+       ========================================================= */
+
+    function renderHistory(
+        filter = ""
+    ) {
+        const list =
+            $("#historyList");
 
         if (!list) return;
 
@@ -314,488 +768,26 @@
                     No conversations yet
                 </div>
             `;
-            return;
-        }
-
-        const firstUserMessage = state.messages.find(
-            (m) => m.role === "user"
-        );
-
-        const title = firstUserMessage
-            ? firstUserMessage.content.slice(0, 32)
-            : "New chat";
-
-        const item = document.createElement("button");
-
-        item.type = "button";
-        item.className = "history-item";
-        item.textContent = title;
-
-        item.addEventListener("click", () => {
-            renderMessages();
-            closeSidebar();
-        });
-
-        list.appendChild(item);
-    }
-
-    function setupInput() {
-        const input = $("#messageInput");
-        const form = $("#chatForm");
-
-        if (!input || !form) return;
-
-        input.addEventListener("input", () => {
-            input.style.height = "auto";
-            input.style.height =
-                Math.min(input.scrollHeight, 130) + "px";
-        });
-
-        input.addEventListener("keydown", (event) => {
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey &&
-                state.enterToSend
-            ) {
-                event.preventDefault();
-                form.requestSubmit();
-            }
-        });
-
-        form.addEventListener("submit", (event) => {
-            event.preventDefault();
-
-            sendMessage(input.value);
-        });
-    }
-
-    function setupSuggestions() {
-        $$(".prompt-card").forEach((card) => {
-            card.addEventListener("click", () => {
-                const prompt =
-                    card.dataset.prompt ||
-                    card.querySelector("h3")?.textContent ||
-                    card.textContent.trim();
-
-                const input = $("#messageInput");
-
-                if (!input) return;
-
-                input.value = prompt;
-                input.focus();
-
-                input.dispatchEvent(new Event("input"));
-
-                toast("Suggestion added");
-            });
-        });
-    }
-
-    function setupNewChat() {
-        $("#newChatButton")?.addEventListener(
-            "click",
-            newChat
-        );
-
-        $("#quickNewChat")?.addEventListener(
-            "click",
-            newChat
-        );
-    }
-
-    function setupSidebar() {
-        const sidebar = $("#sidebar");
-        const menuButton = $("#menuButton");
-        const closeButton = $("#closeSidebar");
-
-        menuButton?.addEventListener("click", () => {
-            sidebar?.classList.add("open");
-        });
-
-        closeButton?.addEventListener("click", () => {
-            closeSidebar();
-        });
-    }
-
-    function closeSidebar() {
-        $("#sidebar")?.classList.remove("open");
-    }
-
-    function setupSearch() {
-        const input = $("#searchInput");
-
-        if (!input) return;
-
-        input.addEventListener("input", () => {
-            const query = input.value.toLowerCase().trim();
-
-            $$("#historyList .history-item").forEach((item) => {
-                item.hidden =
-                    query &&
-                    !item.textContent.toLowerCase().includes(query);
-            });
-        });
-    }
-
-    function setupClearChats() {
-        $("#clearChatsButton")?.addEventListener(
-            "click",
-            () => {
-                if (!state.messages.length) {
-                    toast("No chats to clear");
-                    return;
-                }
-
-                const confirmed = confirm(
-                    "Clear all chats?"
-                );
-
-                if (!confirmed) return;
-
-                state.messages = [];
-
-                localStorage.removeItem(
-                    "ankul_messages"
-                );
-
-                renderMessages();
-                renderHistory();
-
-                toast("All chats cleared");
-            }
-        );
-    }
-
-    function closeModelMenu() {
-        const menu = $("#modelMenu");
-
-        if (menu) {
-            menu.hidden = true;
-        }
-    }
-
-    function setupModelSelector() {
-        const button = $("#modelButton");
-        const menu = $("#modelMenu");
-
-        if (!button || !menu) return;
-
-        button.addEventListener("click", (event) => {
-            event.stopPropagation();
-            menu.hidden = !menu.hidden;
-        });
-
-        menu.addEventListener("click", (event) => {
-            const option =
-                event.target.closest("[data-model]");
-
-            if (!option) return;
-
-            state.selectedModel =
-                option.dataset.model;
-
-            localStorage.setItem(
-                "ankul_model",
-                state.selectedModel
-            );
-
-            updateModelUI();
-            closeModelMenu();
-
-            toast(
-                "Model: " +
-                state.selectedModel
-            );
-        });
-
-        document.addEventListener("click", (event) => {
-            if (
-                !menu.contains(event.target) &&
-                !button.contains(event.target)
-            ) {
-                closeModelMenu();
-            }
-        });
-    }
-
-    function setupTheme() {
-        $("#themeButton")?.addEventListener(
-            "click",
-            () => {
-                state.theme =
-                    state.theme === "dark"
-                        ? "light"
-                        : "dark";
-
-                applyTheme();
-
-                toast(
-                    state.theme === "dark"
-                        ? "Switched to dark mode"
-                        : "Switched to light mode"
-                );
-            }
-        );
-
-        const switchEl = $("#darkModeSwitch");
-
-        switchEl?.addEventListener(
-            "change",
-            () => {
-                state.theme =
-                    switchEl.checked
-                        ? "dark"
-                        : "light";
-
-                applyTheme();
-            }
-        );
-    }
-
-    function setupModals() {
-        $$("[data-close-modal]").forEach((button) => {
-            button.addEventListener("click", () => {
-                const id =
-                    button.dataset.closeModal;
-
-                const modal = document.getElementById(id);
-
-                if (modal) {
-                    modal.hidden = true;
-                }
-            });
-        });
-
-        $("#settingsButton")?.addEventListener(
-            "click",
-            () => {
-                const modal = $("#settingsModal");
-
-                if (modal) {
-                    modal.hidden = false;
-                }
-
-                closeSidebar();
-            }
-        );
-
-        $("#aboutButton")?.addEventListener(
-            "click",
-            () => {
-                const modal = $("#aboutModal");
-
-                if (modal) {
-                    modal.hidden = false;
-                }
-
-                closeSidebar();
-            }
-        );
-
-        $$(".modal").forEach((modal) => {
-            modal.addEventListener("click", (event) => {
-                if (event.target === modal) {
-                    modal.hidden = true;
-                }
-            });
-        });
-
-        document.addEventListener("keydown", (event) => {
-            if (event.key !== "Escape") return;
-
-            $$(".modal").forEach((modal) => {
-                modal.hidden = true;
-            });
-
-            closeModelMenu();
-        });
-    }
-
-    function restoreSettings() {
-        const enterSwitch = $("#enterSendSwitch");
-        const timestampSwitch = $("#timestampSwitch");
-
-        if (enterSwitch) {
-            enterSwitch.checked =
-                state.enterToSend;
-
-            enterSwitch.addEventListener(
-                "change",
-                () => {
-                    state.enterToSend =
-                        enterSwitch.checked;
-
-                    localStorage.setItem(
-                        "ankul_enter_send",
-                        String(state.enterToSend)
-                    );
-                }
-            );
-        }
-
-        if (timestampSwitch) {
-            timestampSwitch.checked =
-                state.timestamps;
-
-            timestampSwitch.addEventListener(
-                "change",
-                () => {
-                    state.timestamps =
-                        timestampSwitch.checked;
-
-                    localStorage.setItem(
-                        "ankul_timestamps",
-                        String(state.timestamps)
-                    );
-
-                    renderMessages();
-                }
-            );
-        }
-    }
-
-    function setupAttachment() {
-        const button = $("#attachButton");
-        const input = $("#fileInput");
-
-        if (!button || !input) return;
-
-        button.addEventListener("click", () => {
-            input.click();
-        });
-
-        input.addEventListener("change", () => {
-            const file = input.files?.[0];
-
-            if (!file) return;
-
-            toast(
-                "Selected: " + file.name
-            );
-
-            input.value = "";
-        });
-    }
-
-    function setupVoice() {
-        const button = $("#voiceButton");
-
-        if (!button) return;
-
-        const SpeechRecognition =
-            window.SpeechRecognition ||
-            window.webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            button.addEventListener("click", () => {
-                toast(
-                    "Voice input is not supported in this browser"
-                );
-            });
 
             return;
         }
 
-        const recognition =
-            new SpeechRecognition();
+        const firstUserMessage =
+            state.messages.find(
+                (m) =>
+                    m.role === "user"
+            );
 
-        recognition.lang = "hi-IN";
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        const title =
+            firstUserMessage
+                ? firstUserMessage.content
+                      .replace(/\s+/g, " ")
+                      .slice(0, 40)
+                : "New chat";
 
-        recognition.onstart = () => {
-            state.isListening = true;
-            button.classList.add("active");
-            toast("Listening...");
-        };
-
-        recognition.onresult = (event) => {
-            const text =
-                event.results[0][0].transcript;
-
-            const input = $("#messageInput");
-
-            if (input) {
-                input.value =
-                    (input.value
-                        ? input.value + " "
-                        : "") + text;
-
-                input.dispatchEvent(
-                    new Event("input")
-                );
-
-                input.focus();
-            }
-        };
-
-        recognition.onerror = () => {
-            toast("Voice input failed");
-        };
-
-        recognition.onend = () => {
-            state.isListening = false;
-            button.classList.remove("active");
-        };
-
-        button.addEventListener("click", () => {
-            if (state.isListening) {
-                recognition.stop();
-            } else {
-                recognition.start();
-            }
-        });
-    }
-
-    function setupNavigation() {
-        $$(".nav-item").forEach((item) => {
-            item.addEventListener("click", () => {
-                $$(".nav-item").forEach((x) =>
-                    x.classList.remove("active")
-                );
-
-                item.classList.add("active");
-
-                const page = item.dataset.page;
-
-                if (page === "home") {
-                    if (!state.messages.length) {
-                        showWelcome();
-                    } else {
-                        renderMessages();
-                    }
-                }
-
-                if (page === "history") {
-                    renderHistory();
-                    toast("Chat history");
-                }
-
-                if (page === "saved") {
-                    toast("Saved chats");
-                }
-
-                closeSidebar();
-            });
-        });
-
-        $("#topMoreButton")?.addEventListener(
-            "click",
-            () => {
-                toast("More options");
-            }
-        );
-    }
-
-    function setupGlobalClickSafety() {
-        document.addEventListener(
-            "click",
-            (event) => {
-                const button =
-                    event.target.closest("button");
-
-                if (!button) return;
-
-                if (
-                    button.disabled ||
-                 
+        if (
+            filter &&
+            !title
+                .toLowerCase()
+                .includes(
+                    f
