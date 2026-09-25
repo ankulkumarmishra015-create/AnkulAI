@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY . /app
 
+COPY Caddyfile /etc/caddy/Caddyfile
+
 ENV SERVER_NAME=:80
 
 EXPOSE 80
