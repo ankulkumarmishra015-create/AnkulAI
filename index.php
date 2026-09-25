@@ -20,7 +20,7 @@ $appVersion = '1.0.0';
 
     <link
         rel="stylesheet"
-        href="/assets/style.css?v=21"
+        href="/assets/style.css?v=20"
     >
 </head>
 
@@ -35,12 +35,16 @@ $appVersion = '1.0.0';
         <div class="sidebar-header">
 
             <div class="brand">
-                <div class="brand-logo">A</div>
+
+                <div class="brand-logo">
+                    A
+                </div>
 
                 <div class="brand-text">
                     <strong>Ankul AI</strong>
                     <span>Personal AI Assistant</span>
                 </div>
+
             </div>
 
             <button
@@ -55,8 +59,6 @@ $appVersion = '1.0.0';
         </div>
 
 
-        <!-- NEW CHAT -->
-
         <div class="sidebar-actions">
 
             <button
@@ -64,7 +66,7 @@ $appVersion = '1.0.0';
                 class="new-chat-button"
                 id="newChatButton"
             >
-                <span>＋</span>
+                <span>+</span>
                 <span>New chat</span>
             </button>
 
@@ -199,9 +201,15 @@ $appVersion = '1.0.0';
 
 
                 <div class="top-brand">
-                    <div class="top-brand-logo">A</div>
 
-                    <strong>Ankul AI</strong>
+                    <div class="top-brand-logo">
+                        A
+                    </div>
+
+                    <strong>
+                        Ankul AI
+                    </strong>
+
                 </div>
 
             </div>
@@ -209,7 +217,7 @@ $appVersion = '1.0.0';
 
             <div class="topbar-right">
 
-                <!-- MODEL -->
+                <!-- MODEL SELECTOR -->
 
                 <div class="model-selector">
 
@@ -218,11 +226,15 @@ $appVersion = '1.0.0';
                         class="model-button"
                         id="modelButton"
                     >
+
                         <span id="selectedModel">
                             gemini-3.8-flash
                         </span>
 
-                        <span>⌄</span>
+                        <span>
+                            ▾
+                        </span>
+
                     </button>
 
 
@@ -241,7 +253,9 @@ $appVersion = '1.0.0';
                                 Gemini 3.8 Flash
                             </span>
 
-                            <span>✓</span>
+                            <span>
+                                ✓
+                            </span>
                         </button>
 
 
@@ -267,16 +281,16 @@ $appVersion = '1.0.0';
                 </div>
 
 
-                <!-- QUICK NEW CHAT -->
+                <!-- NEW CHAT -->
 
                 <button
                     type="button"
                     class="top-icon-button"
                     id="quickNewChat"
-                    title="New chat"
                     aria-label="New chat"
+                    title="New chat"
                 >
-                    ＋
+                    +
                 </button>
 
 
@@ -286,8 +300,8 @@ $appVersion = '1.0.0';
                     type="button"
                     class="top-icon-button"
                     id="themeButton"
-                    title="Change theme"
-                    aria-label="Change theme"
+                    aria-label="Theme"
+                    title="Theme"
                 >
                     ☼
                 </button>
@@ -299,8 +313,8 @@ $appVersion = '1.0.0';
                     type="button"
                     class="top-icon-button"
                     id="topMoreButton"
-                    title="More"
                     aria-label="More"
+                    title="More"
                 >
                     ⋮
                 </button>
@@ -340,7 +354,7 @@ $appVersion = '1.0.0';
                 </p>
 
 
-                <!-- SUGGESTIONS -->
+                <!-- SUGGESTION CARDS -->
 
                 <div class="prompt-grid">
 
@@ -349,6 +363,7 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Explain something in simple words"
                     >
+
                         <div class="prompt-icon">
                             💡
                         </div>
@@ -364,6 +379,7 @@ $appVersion = '1.0.0';
                             </span>
 
                         </div>
+
                     </button>
 
 
@@ -372,6 +388,7 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Help me build a website"
                     >
+
                         <div class="prompt-icon">
                             💻
                         </div>
@@ -387,6 +404,7 @@ $appVersion = '1.0.0';
                             </span>
 
                         </div>
+
                     </button>
 
 
@@ -395,6 +413,7 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Make a study plan for me"
                     >
+
                         <div class="prompt-icon">
                             📚
                         </div>
@@ -410,6 +429,7 @@ $appVersion = '1.0.0';
                             </span>
 
                         </div>
+
                     </button>
 
 
@@ -418,6 +438,7 @@ $appVersion = '1.0.0';
                         class="prompt-card"
                         data-prompt="Give me some project ideas"
                     >
+
                         <div class="prompt-icon">
                             🚀
                         </div>
@@ -433,6 +454,7 @@ $appVersion = '1.0.0';
                             </span>
 
                         </div>
+
                     </button>
 
                 </div>
@@ -449,7 +471,7 @@ $appVersion = '1.0.0';
             ></div>
 
 
-            <!-- TYPING -->
+            <!-- TYPING INDICATOR -->
 
             <div
                 id="typingIndicator"
@@ -482,7 +504,7 @@ $appVersion = '1.0.0';
                 autocomplete="off"
             >
 
-                <!-- ATTACH -->
+                <!-- ATTACHMENT -->
 
                 <button
                     type="button"
@@ -491,7 +513,7 @@ $appVersion = '1.0.0';
                     title="Attach file"
                     aria-label="Attach file"
                 >
-                    ＋
+                    +
                 </button>
 
 
@@ -503,7 +525,7 @@ $appVersion = '1.0.0';
                 >
 
 
-                <!-- MESSAGE -->
+                <!-- TEXT -->
 
                 <textarea
                     id="messageInput"
@@ -554,7 +576,7 @@ $appVersion = '1.0.0';
 </div>
 
 
-<!-- ================= SETTINGS MODAL ================= -->
+<!-- ================= SETTINGS ================= -->
 
 <div
     class="modal"
@@ -583,8 +605,6 @@ $appVersion = '1.0.0';
 
         <div class="modal-body">
 
-            <!-- APPEARANCE -->
-
             <div class="settings-group">
 
                 <div class="settings-label">
@@ -595,6 +615,7 @@ $appVersion = '1.0.0';
                 <div class="setting-row">
 
                     <div>
+
                         <strong>
                             Theme
                         </strong>
@@ -602,6 +623,7 @@ $appVersion = '1.0.0';
                         <span>
                             Choose your preferred color scheme
                         </span>
+
                     </div>
 
 
@@ -610,22 +632,15 @@ $appVersion = '1.0.0';
                         <button
                             type="button"
                             class="theme-option"
-                            onclick="
-                                document.getElementById('darkModeSwitch').checked = true;
-                                document.getElementById('darkModeSwitch').dispatchEvent(new Event('change'));
-                            "
+                            id="darkThemeButton"
                         >
                             Dark
                         </button>
 
-
                         <button
                             type="button"
                             class="theme-option"
-                            onclick="
-                                document.getElementById('darkModeSwitch').checked = false;
-                                document.getElementById('darkModeSwitch').dispatchEvent(new Event('change'));
-                            "
+                            id="lightThemeButton"
                         >
                             Light
                         </button>
@@ -637,16 +652,12 @@ $appVersion = '1.0.0';
             </div>
 
 
-            <!-- CHAT -->
-
             <div class="settings-group">
 
                 <div class="settings-label">
                     CHAT
                 </div>
 
-
-                <!-- ENTER TO SEND -->
 
                 <div class="setting-row">
 
@@ -677,8 +688,6 @@ $appVersion = '1.0.0';
 
                 </div>
 
-
-                <!-- TIMESTAMP -->
 
                 <div class="setting-row">
 
@@ -711,14 +720,11 @@ $appVersion = '1.0.0';
             </div>
 
 
-            <!-- ABOUT -->
-
             <div class="settings-group">
 
                 <div class="settings-label">
                     ABOUT
                 </div>
-
 
                 <div class="about-small">
 
@@ -735,7 +741,7 @@ $appVersion = '1.0.0';
                     </span>
 
                     <span>
-                        A modern Gemini-powered AI assistant interface.
+                        A Gemini-powered AI assistant interface.
                     </span>
 
                 </div>
@@ -749,7 +755,7 @@ $appVersion = '1.0.0';
 </div>
 
 
-<!-- ================= ABOUT MODAL ================= -->
+<!-- ================= ABOUT ================= -->
 
 <div
     class="modal"
@@ -846,7 +852,7 @@ $appVersion = '1.0.0';
 ></div>
 
 
-<!-- ================= JAVASCRIPT ================= -->
+<!-- ================= JS ================= -->
 
 <script
     src="/assets/app.js?v=21"
