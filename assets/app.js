@@ -1,51 +1,79 @@
 (() => {
     "use strict";
 
-    /* =====================================================
-       ANKUL AI - COMPLETE APP.JS
-       ===================================================== */
-
     const $ = (selector, parent = document) =>
         parent.querySelector(selector);
 
     const $$ = (selector, parent = document) =>
         [...parent.querySelectorAll(selector)];
 
+    const STORAGE = {
+        chats: "ankul_chats",
+        model: "ankul_model",
+        theme: "ankul_theme",
+        enterSend: "ankul_enter_send",
+        timestamps: "ankul_timestamps",
+        saved: "ankul_saved"
+    };
 
-    /* =====================================================
-       STATE
-       ===================================================== */
+    function safeJSON(value, fallback) {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed ?? fallback;
+        } catch {
+            return fallback;
+        }
+    }
 
     const state = {
         messages: [],
-        chats: JSON.parse(
-            localStorage.getItem("ankul_chats") || "[]"
+        chats: safeJSON(
+            localStorage.getItem(STORAGE.chats) || "[]",
+            []
+        ),
+        saved: safeJSON(
+            localStorage.getItem(STORAGE.saved) || "[]",
+            []
         ),
 
         selectedModel:
-            localStorage.getItem("ankul_model") ||
+            localStorage.getItem(STORAGE.model) ||
             "gemini-3.8-flash",
 
         theme:
-            localStorage.getItem("ankul_theme") ||
+            localStorage.getItem(STORAGE.theme) ||
             "dark",
 
         enterToSend:
-            localStorage.getItem("ankul_enter_send") !== "false",
+            localStorage.getItem(STORAGE.enterSend) !== "false",
 
         timestamps:
-            localStorage.getItem("ankul_timestamps") === "true",
+            localStorage.getItem(STORAGE.timestamps) === "true",
 
-        isLoading: false,
-        isListening: false,
         currentChatId: null,
-        attachedFiles: []
+        attachedFiles: [],
+        isLoading: false,
+        abortController: null,
+        recognition: null,
+        isListening: false
     };
 
+    function generateId() {
+        return (
+            Date.now().toString(36) +
+            "-" +
+            Math.random()
+                .toString(36)
+                .slice(2, 10)
+        );
+    }
 
-    /* =====================================================
-       BASIC HELPERS
-       ===================================================== */
+    function now() {
+        return new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
 
     function escapeHTML(value) {
         return String(value ?? "")
@@ -56,78 +84,219 @@
             .replace(/'/g, "&#039;");
     }
 
-
-    function toast(message) {
+    function toast(message, duration = 2600) {
         const el = $("#toast");
 
         if (!el) return;
 
-        el.textContent = message;
+        el.textContent = String(message);
         el.classList.add("show");
 
         clearTimeout(toast.timer);
 
         toast.timer = setTimeout(() => {
             el.classList.remove("show");
-        }, 2200);
+        }, duration);
     }
 
-
-    function now() {
-        return new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    }
-
-
-    function generateId() {
-        return (
-            Date.now().toString(36) +
-            Math.random()
-                .toString(36)
-                .slice(2)
+    function persistChats() {
+        localStorage.setItem(
+            STORAGE.chats,
+            JSON.stringify(state.chats)
         );
     }
 
+    function persistSaved() {
+        localStorage.setItem(
+            STORAGE.saved,
+            JSON.stringify(state.saved)
+        );
+    }
 
-    /* =====================================================
-       MARKDOWN FORMATTER
-       ===================================================== */
+    function currentChat() {
+        return (
+            state.chats.find(
+                chat =>
+                    chat.id ===
+                    state.currentChatId
+            ) || null
+        );
+    }
+
+    function ensureCurrentChat() {
+        if (
+            state.currentChatId &&
+            currentChat()
+        ) {
+            return currentChat();
+        }
+
+        const chat = {
+            id: generateId(),
+            title: "New chat",
+            messages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+
+        state.currentChatId = chat.id;
+
+        state.chats.unshift(chat);
+
+        persistChats();
+        renderHistory();
+
+        return chat;
+    }
+
+    function saveCurrentChat() {
+        const chat = currentChat();
+
+        if (!chat) return;
+
+        chat.messages =
+            state.messages.map(message => ({
+                role: message.role,
+                content: message.content,
+                time: message.time || ""
+            }));
+
+        chat.updatedAt = Date.now();
+
+        persistChats();
+        renderHistory();
+    }
+
+    function updateChatTitle() {
+        const chat = currentChat();
+
+        if (!chat) return;
+
+        const firstUser =
+            state.messages.find(
+                message =>
+                    message.role === "user"
+            );
+
+        if (firstUser) {
+            const clean =
+                firstUser.content
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+            chat.title =
+                clean.length > 55
+                    ? clean.slice(0, 55) + "…"
+                    : clean || "New chat";
+        }
+
+        chat.updatedAt = Date.now();
+
+        persistChats();
+        renderHistory();
+    }
+
+    function applyTheme() {
+        document.body.classList.toggle(
+            "light-theme",
+            state.theme === "light"
+        );
+
+        document.documentElement.dataset.theme =
+            state.theme;
+
+        localStorage.setItem(
+            STORAGE.theme,
+            state.theme
+        );
+    }
+
+    function updateSettingsUI() {
+        const enter =
+            $("#enterSendSwitch");
+
+        const timestamps =
+            $("#timestampSwitch");
+
+        if (enter) {
+            enter.checked =
+                state.enterToSend;
+        }
+
+        if (timestamps) {
+            timestamps.checked =
+                state.timestamps;
+        }
+    }
+
+    function setModel(model) {
+        const allowed = [
+            "gemini-3.8-flash",
+            "gemini-3.6-flash",
+            "auto"
+        ];
+
+        state.selectedModel =
+            allowed.includes(model)
+                ? model
+                : "gemini-3.8-flash";
+
+        localStorage.setItem(
+            STORAGE.model,
+            state.selectedModel
+        );
+
+        const selected =
+            $("#selectedModel");
+
+        if (selected) {
+            selected.textContent =
+                state.selectedModel;
+        }
+
+        $$(".model-option").forEach(
+            option => {
+                const active =
+                    option.dataset.model ===
+                    state.selectedModel;
+
+                option.classList.toggle(
+                    "active",
+                    active
+                );
+
+                const last =
+                    option.querySelector(
+                        "span:last-child"
+                    );
+
+                if (last) {
+                    last.textContent =
+                        active ? "✓" : "";
+                }
+            }
+        );
+    }
 
     function formatMessage(text) {
-
         let html = escapeHTML(text);
 
-        const codeBlocks = [];
-
         html = html.replace(
-            /```([\w+-]*)\n?([\s\S]*?)```/g,
+            /```([a-zA-Z0-9_+#.-]*)\s*\n?([\s\S]*?)```/g,
             (_, language, code) => {
-
                 const id =
                     "code-" +
-                    Math.random()
-                        .toString(36)
-                        .slice(2);
-
-                codeBlocks.push({
-                    id,
-                    code
-                });
+                    generateId();
 
                 return `
                     <div class="ankul-code-block">
-                        <div style="
-                            display:flex;
-                            justify-content:space-between;
-                            align-items:center;
-                            padding:6px 8px;
-                            border-bottom:1px solid #292c35;
-                            color:#777;
-                            font-size:8px;
-                        ">
-                            <span>${escapeHTML(language || "code")}</span>
+                        <div class="code-header">
+                            <span>
+                                ${escapeHTML(
+                                    language ||
+                                    "code"
+                                )}
+                            </span>
 
                             <button
                                 type="button"
@@ -138,243 +307,99 @@
                             </button>
                         </div>
 
-                        <pre id="${id}" style="
-                            margin:0;
-                            padding:12px;
-                            overflow:auto;
-                            color:#d7d9e0;
-                            font-size:10px;
-                            line-height:1.55;
-                        ">${escapeHTML(code)}</pre>
+                        <pre id="${id}">
+<code>${escapeHTML(
+                    code.replace(/\n$/, "")
+                )}</code>
+                        </pre>
                     </div>
                 `;
             }
         );
 
-
         html = html.replace(
-            /`([^`]+)`/g,
+            /`([^`\n]+)`/g,
             "<code>$1</code>"
         );
-
 
         html = html.replace(
             /\*\*(.*?)\*\*/g,
             "<strong>$1</strong>"
         );
 
-
         html = html.replace(
-            /\*(.*?)\*/g,
-            "<em>$1</em>"
+            /(^|[\s(])\*(?!\s)([^*]+)\*(?=[\s).,!?:;]|$)/g,
+            "$1<em>$2</em>"
         );
-
 
         html = html.replace(
             /\n/g,
             "<br>"
         );
 
-
         return html;
     }
 
-
-    /* =====================================================
-       STORAGE
-       ===================================================== */
-
-    function saveChats() {
-        localStorage.setItem(
-            "ankul_chats",
-            JSON.stringify(state.chats)
-        );
-    }
-
-
-    function saveCurrentChat() {
-
-        if (!state.currentChatId) return;
-
-        const chat =
-            state.chats.find(
-                c => c.id === state.currentChatId
-            );
-
-        if (!chat) return;
-
-        chat.messages =
-            state.messages.map(m => ({
-                role: m.role,
-                content: m.content,
-                time: m.time || ""
-            }));
-
-        saveChats();
-        renderHistory();
-    }
-
-
-    function loadChat(id) {
-
-        const chat =
-            state.chats.find(
-                c => c.id === id
-            );
-
-        if (!chat) return;
-
-        state.currentChatId = id;
-
-        state.messages =
-            Array.isArray(chat.messages)
-                ? [...chat.messages]
-                : [];
-
-        renderMessages();
-        closeSidebar();
-
-        setActiveNav("history");
-    }
-
-
-    /* =====================================================
-       THEME
-       ===================================================== */
-
-    function applyTheme() {
-
-        document.body.classList.toggle(
-            "light-theme",
-            state.theme === "light"
-        );
-
-        document.documentElement.dataset.theme =
-            state.theme;
-
-        localStorage.setItem(
-            "ankul_theme",
-            state.theme
-        );
-    }
-
-
-    /* =====================================================
-       MODEL
-       ===================================================== */
-
-    function updateModelUI() {
-
-        const selected = $("#selectedModel");
-
-        if (selected) {
-            selected.textContent =
-                state.selectedModel;
-        }
-
-
-        $$(".model-option").forEach(option => {
-
-            option.classList.toggle(
-                "active",
-                option.dataset.model ===
-                    state.selectedModel
-            );
-
-            const check =
-                option.querySelector("span:last-child");
-
-            if (
-                check &&
-                option.dataset.model !==
-                    state.selectedModel
-            ) {
-                check.textContent = "";
-            }
-        });
-
-
-        localStorage.setItem(
-            "ankul_model",
-            state.selectedModel
-        );
-    }
-
-
-    /* =====================================================
-       WELCOME
-       ===================================================== */
-
     function showWelcome() {
+        const welcome =
+            $("#welcomeScreen");
 
-        const welcome = $("#welcomeScreen");
-        const messages = $("#messages");
+        const messages =
+            $("#messages");
 
-        if (!welcome || !messages) return;
-
-        if (state.messages.length === 0) {
-
-            welcome.hidden = false;
-            messages.hidden = true;
-
-        } else {
-
-            welcome.hidden = true;
-            messages.hidden = false;
+        if (!welcome || !messages) {
+            return;
         }
+
+        const hasMessages =
+            state.messages.length > 0;
+
+        welcome.hidden =
+            hasMessages;
+
+        messages.hidden =
+            !hasMessages;
     }
-
-
-    /* =====================================================
-       RENDER MESSAGES
-       ===================================================== */
 
     function renderMessages() {
-
-        const container = $("#messages");
+        const container =
+            $("#messages");
 
         if (!container) return;
 
         container.innerHTML = "";
 
-
         state.messages.forEach(
             (message, index) => {
-
                 const isUser =
-                    message.role === "user";
+                    message.role ===
+                    "user";
 
                 const wrapper =
-                    document.createElement("div");
+                    document.createElement(
+                        "article"
+                    );
 
                 wrapper.className =
-                    "message " +
-                    (
+                    `message ${
                         isUser
                             ? "user-message"
                             : "assistant-message"
-                    );
-
-
-                const content =
-                    formatMessage(
-                        message.content
-                    );
-
+                    }`;
 
                 const time =
                     state.timestamps &&
                     message.time
                         ? `
                             <div class="message-time">
-                                ${escapeHTML(message.time)}
+                                ${escapeHTML(
+                                    message.time
+                                )}
                             </div>
                           `
                         : "";
 
-
                 wrapper.innerHTML = `
-
                     <div class="message-avatar">
                         ${isUser ? "U" : "A"}
                     </div>
@@ -382,23 +407,22 @@
                     <div class="message-content">
 
                         <div class="message-name">
-                            ${isUser ? "You" : "Ankul AI"}
+                            ${
+                                isUser
+                                    ? "You"
+                                    : "Ankul AI"
+                            }
                         </div>
 
                         <div class="message-text">
-                            ${content}
+                            ${formatMessage(
+                                message.content
+                            )}
                         </div>
 
                         ${time}
 
-                        <div
-                            class="message-actions"
-                            style="
-                                display:flex;
-                                gap:5px;
-                                margin-top:7px;
-                            "
-                        >
+                        <div class="message-actions">
 
                             <button
                                 type="button"
@@ -413,26 +437,26 @@
                             ${
                                 !isUser
                                     ? `
-                                    <button
-                                        type="button"
-                                        class="message-tool"
-                                        data-action="regenerate"
-                                        data-index="${index}"
-                                        title="Regenerate"
-                                    >
-                                        ↻
-                                    </button>
+                                <button
+                                    type="button"
+                                    class="message-tool"
+                                    data-action="regenerate"
+                                    data-index="${index}"
+                                    title="Regenerate"
+                                >
+                                    ↻
+                                </button>
 
-                                    <button
-                                        type="button"
-                                        class="message-tool"
-                                        data-action="save"
-                                        data-index="${index}"
-                                        title="Save"
-                                    >
-                                        ♡
-                                    </button>
-                                    `
+                                <button
+                                    type="button"
+                                    class="message-tool"
+                                    data-action="save"
+                                    data-index="${index}"
+                                    title="Save"
+                                >
+                                    ♡
+                                </button>
+                            `
                                     : ""
                             }
 
@@ -451,19 +475,15 @@
                     </div>
                 `;
 
-
                 container.appendChild(
                     wrapper
                 );
             }
         );
 
-
         showWelcome();
 
-
-        setTimeout(() => {
-
+        requestAnimationFrame(() => {
             const chat =
                 $("#chatArea");
 
@@ -471,42 +491,28 @@
                 chat.scrollTop =
                     chat.scrollHeight;
             }
-
-        }, 20);
+        });
     }
-
-
-    /* =====================================================
-       ADD MESSAGE
-       ===================================================== */
 
     function addMessage(
         role,
         content
     ) {
-
         state.messages.push({
-
             role,
-
-            content,
-
+            content: String(
+                content ?? ""
+            ),
             time: now()
         });
-
 
         renderMessages();
         saveCurrentChat();
     }
 
-
-    /* =====================================================
-       LOADING
-       ===================================================== */
-
-    function setLoading(value) {
-
-        state.isLoading = value;
+    function setLoading(loading) {
+        state.isLoading =
+            loading;
 
         const indicator =
             $("#typingIndicator");
@@ -514,95 +520,136 @@
         const send =
             $("#sendButton");
 
-
         if (indicator) {
-            indicator.hidden = !value;
+            indicator.hidden =
+                !loading;
         }
 
-
         if (send) {
-
             send.textContent =
-                value ? "■" : "➤";
+                loading
+                    ? "■"
+                    : "➤";
 
             send.title =
-                value
+                loading
                     ? "Stop"
                     : "Send";
         }
     }
 
+    function friendlyError(error) {
+        const message =
+            String(
+                error?.message ||
+                error ||
+                "Unknown error"
+            );
 
-    /* =====================================================
-       SEND MESSAGE
-       ===================================================== */
+        if (
+            /failed to fetch|networkerror|load failed/i.test(
+                message
+            )
+        ) {
+            return (
+                "Network error: server/API " +
+                "se connection nahi ho paaya. " +
+                "Internet aur Vercel deployment check karo."
+            );
+        }
+
+        if (/abort/i.test(message)) {
+            return "Generation stopped.";
+        }
+
+        return message;
+    }
 
     async function sendMessage(
         forcedText = null
     ) {
-
         if (state.isLoading) {
             return;
         }
-
 
         const input =
             $("#messageInput");
 
         if (!input) return;
 
-
-        const message =
+        const text =
             forcedText !== null
-                ? String(forcedText).trim()
+                ? String(
+                      forcedText
+                  ).trim()
                 : input.value.trim();
 
-
         if (
-            !message &&
-            state.attachedFiles.length === 0
+            !text &&
+            state.attachedFiles.length ===
+                0
         ) {
+            toast(
+                "Message likho ya file attach karo."
+            );
 
-            toast("Message likho.");
+            input.focus();
+
             return;
         }
 
+        ensureCurrentChat();
 
         const attachments =
-            [...state.attachedFiles];
+            state.attachedFiles.map(
+                file => ({
+                    ...file
+                })
+            );
 
+        const visibleUserText =
+            text ||
+            "Please analyze the attached file(s).";
 
         input.value = "";
 
         resizeTextarea();
 
-
         addMessage(
             "user",
-            message ||
-                "Please analyze the attached file."
+            visibleUserText
         );
 
+        updateChatTitle();
 
         const history =
             state.messages
                 .slice(0, -1)
-                .map(item => ({
-                    role: item.role,
-                    content: item.content
+                .filter(
+                    message =>
+                        message.role ===
+                            "user" ||
+                        message.role ===
+                            "assistant"
+                )
+                .slice(-40)
+                .map(message => ({
+                    role:
+                        message.role,
+                    content:
+                        message.content
                 }));
-
 
         state.attachedFiles = [];
 
         renderAttachmentState();
 
-
         setLoading(true);
 
+        state.abortController =
+            new AbortController();
 
         try {
-
             const response =
                 await fetch(
                     "/api/chat.php",
@@ -611,118 +658,143 @@
 
                         headers: {
                             "Content-Type":
+                                "application/json",
+
+                            Accept:
                                 "application/json"
                         },
 
-                        body: JSON.stringify({
+                        body:
+                            JSON.stringify({
+                                message:
+                                    text,
 
-                            message:
-                                message ||
-                                "Please analyze the attached file.",
+                                model:
+                                    state.selectedModel,
 
-                            model:
-                                state.selectedModel,
+                                history,
 
-                            history,
+                                attachments
+                            }),
 
-                            attachments
-                        })
+                        signal:
+                            state.abortController
+                                .signal
                     }
                 );
 
+            const raw =
+                await response.text();
 
-            let data = null;
+            let data;
 
             try {
                 data =
-                    await response.json();
+                    JSON.parse(raw);
             } catch {
                 throw new Error(
-                    "Server returned invalid response."
+                    `Server returned non-JSON response (${response.status}). ${raw.slice(
+                        0,
+                        180
+                    )}`
                 );
             }
-
 
             if (
                 !response.ok ||
                 !data.success
             ) {
-
                 throw new Error(
                     data.message ||
-                    "AI request failed."
+                        data.error ||
+                        `AI request failed (${response.status}).`
                 );
             }
 
+            if (
+                !data.message ||
+                !String(
+                    data.message
+                ).trim()
+            ) {
+                throw new Error(
+                    "Gemini returned an empty response."
+                );
+            }
 
             addMessage(
                 "assistant",
                 data.message
             );
 
-
+            updateChatTitle();
         } catch (error) {
+            const message =
+                friendlyError(error);
 
-            console.error(error);
-
-            addMessage(
-                "assistant",
-                "⚠️ Error: " +
-                (
-                    error.message ||
-                    "AI response nahi aa saka."
+            if (
+                !/generation stopped/i.test(
+                    message
                 )
-            );
+            ) {
+                console.error(
+                    "Ankul AI:",
+                    error
+                );
 
-            toast("AI request failed.");
+                addMessage(
+                    "assistant",
+                    `⚠️ ${message}`
+                );
 
+                toast(
+                    "AI response failed."
+                );
+            } else {
+                toast(message);
+            }
         } finally {
+            state.abortController =
+                null;
 
             setLoading(false);
         }
     }
 
-
-    /* =====================================================
-       NEW CHAT
-       ===================================================== */
+    function stopGeneration() {
+        if (
+            state.abortController
+        ) {
+            state.abortController.abort();
+        }
+    }
 
     function newChat() {
-
-        if (
-            state.messages.length > 0 &&
-            state.currentChatId
-        ) {
+        if (state.messages.length) {
             saveCurrentChat();
         }
 
+        const chat = {
+            id: generateId(),
+            title: "New chat",
+            messages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
 
-        const id =
-            generateId();
+        state.chats.unshift(chat);
 
+        state.currentChatId =
+            chat.id;
 
-        state.currentChatId = id;
         state.messages = [];
+
         state.attachedFiles = [];
 
+        persistChats();
 
-        state.chats.unshift({
-
-            id,
-
-            title: "New chat",
-
-            messages: [],
-
-            createdAt:
-                Date.now()
-        });
-
-
-        saveChats();
-
-        renderMessages();
         renderHistory();
+        renderMessages();
         renderAttachmentState();
 
         closeSidebar();
@@ -737,167 +809,27 @@
         }
     }
 
-
-    /* =====================================================
-       HISTORY
-       ===================================================== */
-
-    function renderHistory(
-        filter = ""
-    ) {
-
-        const list =
-            $("#historyList");
-
-        if (!list) return;
-
-
-        list.innerHTML = "";
-
-
-        const query =
-            filter
-                .trim()
-                .toLowerCase();
-
-
-        const chats =
-            state.chats.filter(chat => {
-
-                if (!query) {
-                    return true;
-                }
-
-                return (
-                    String(
-                        chat.title || ""
-                    )
-                    .toLowerCase()
-                    .includes(query)
-                );
-            });
-
-
-        if (chats.length === 0) {
-
-            list.innerHTML = `
-                <div class="empty-history">
-                    No chats yet
-                </div>
-            `;
-
-            return;
-        }
-
-
-        chats.forEach(chat => {
-
-            const button =
-                document.createElement("button");
-
-            button.type = "button";
-
-            button.className =
-                "history-item";
-
-
-            button.textContent =
-                chat.title ||
-                "New chat";
-
-
-            button.dataset.chatId =
-                chat.id;
-
-
-            list.appendChild(button);
-        });
-    }
-
-
-    /* =====================================================
-       CHAT TITLE
-       ===================================================== */
-
-    function updateChatTitle() {
-
-        if (!state.currentChatId) {
-            return;
-        }
-
-
+    function loadChat(id) {
         const chat =
             state.chats.find(
-                c => c.id === state.currentChatId
+                item =>
+                    item.id === id
             );
-
 
         if (!chat) return;
 
+        state.currentChatId =
+            id;
 
-        const firstUser =
-            state.messages.find(
-                m => m.role === "user"
-            );
+        state.messages =
+            Array.isArray(
+                chat.messages
+            )
+                ? chat.messages.map(
+                      message => ({
+                          role:
+                              message.role,
 
-
-        if (firstUser) {
-
-            let title =
-                firstUser.content.trim();
-
-
-            if (title.length > 45) {
-                title =
-                    title.slice(0, 45) +
-                    "…";
-            }
-
-
-            chat.title =
-                title || "New chat";
-        }
-
-
-        saveChats();
-        renderHistory();
-    }
-
-
-    /* =====================================================
-       SIDEBAR
-       ===================================================== */
-
-    function openSidebar() {
-
-        const sidebar =
-            $("#sidebar");
-
-        if (sidebar) {
-            sidebar.classList.add("open");
-        }
-    }
-
-
-    function closeSidebar() {
-
-        const sidebar =
-            $("#sidebar");
-
-        if (sidebar) {
-            sidebar.classList.remove("open");
-        }
-    }
-
-
-    /* =====================================================
-       NAVIGATION
-       ===================================================== */
-
-    function setActiveNav(page) {
-
-        $$(".nav-item").forEach(item => {
-
-            item.classList.toggle(
-                "active",
-                item.dataset
+                          content:
+                              String(
+                                 
