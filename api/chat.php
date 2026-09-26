@@ -1,24 +1,14 @@
 <?php
-
 declare(strict_types=1);
 
-header(
-    'Content-Type: application/json; charset=utf-8'
-);
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('X-Content-Type-Options: nosniff');
 
-header(
-    'Cache-Control: no-store'
-);
+require_once __DIR__ . '/../config/config.php';
 
-require_once __DIR__ .
-    '/../config/config.php';
-
-
-function respond(
-    array $data,
-    int $status = 200
-): never {
-
+function respond(array $data, int $status = 200): never
+{
     http_response_code($status);
 
     echo json_encode(
@@ -30,255 +20,326 @@ function respond(
     exit;
 }
 
+function cleanText(
+    mixed $value,
+    int $maxLength = 120000
+): string {
+    $text =
+        trim(
+            (string)($value ?? '')
+        );
+
+    if (
+        mb_strlen($text) >
+        $maxLength
+    ) {
+        $text =
+            mb_substr(
+                $text,
+                0,
+                $maxLength
+            );
+    }
+
+    return $text;
+}
+
+function allowedModel(
+    string $model
+): string {
+    return match ($model) {
+        'gemini-3.8-flash'
+            => 'gemini-3.8-flash',
+
+        'gemini-3.6-flash'
+            => 'gemini-3.6-flash',
+
+        'auto',
+        ''
+            => 'gemini-3.8-flash',
+
+        default
+            => 'gemini-3.8-flash'
+    };
+}
+
+function normalizeHistory(
+    mixed $history
+): array {
+    if (!is_array($history)) {
+        return [];
+    }
+
+    $contents = [];
+
+    foreach (
+        array_slice(
+            $history,
+            -40
+        ) as $item
+    ) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $content =
+            cleanText(
+                $item['content'] ?? '',
+                50000
+            );
+
+        if ($content === '') {
+            continue;
+        }
+
+        $role =
+            (
+                ($item['role'] ?? 'user')
+                === 'assistant'
+            )
+                ? 'model'
+                : 'user';
+
+        $contents[] = [
+            'role' => $role,
+
+            'parts' => [
+                [
+                    'text' => $content
+                ]
+            ]
+        ];
+    }
+
+    return $contents;
+}
+
+function addAttachments(
+    array &$parts,
+    mixed $attachments
+): void {
+    if (!is_array($attachments)) {
+        return;
+    }
+
+    $count = 0;
+
+    foreach (
+        $attachments as $file
+    ) {
+        if (
+            !is_array($file) ||
+            $count >= 5
+        ) {
+            continue;
+        }
+
+        $name =
+            cleanText(
+                $file['name'] ??
+                'file',
+                180
+            );
+
+        $mime =
+            cleanText(
+                $file['mimeType'] ??
+                '',
+                120
+            );
+
+        if (
+            isset($file['text'])
+        ) {
+            $text =
+                cleanText(
+                    $file['text'],
+                    50000
+                );
+
+            if (
+                $text !== ''
+            ) {
+                $parts[] = [
+                    'text' =>
+                        "\n\n--- Attached text file: {$name} ---\n" .
+                        $text .
+                        "\n--- End attached text file ---"
+                ];
+
+                $count++;
+            }
+
+            continue;
+        }
+
+        $data =
+            (string)(
+                $file['data'] ??
+                ''
+            );
+
+        $isImage =
+            str_starts_with(
+                $mime,
+                'image/'
+            );
+
+        $isPdf =
+            $mime ===
+            'application/pdf';
+
+        if (
+            $data !== '' &&
+            (
+                $isImage ||
+                $isPdf
+            )
+        ) {
+            $parts[] = [
+                'inline_data' => [
+                    'mime_type' =>
+                        $mime,
+
+                    'data' =>
+                        $data
+                ]
+            ];
+
+            $count++;
+        }
+    }
+}
 
 if (
-    $_SERVER['REQUEST_METHOD'] !== 'POST'
+    ($_SERVER['REQUEST_METHOD'] ?? '')
+    !== 'POST'
 ) {
     respond(
         [
             'success' => false,
-            'message' => 'POST required.'
+            'message' =>
+                'POST request required.'
         ],
         405
     );
 }
 
-
 try {
-
     $apiKey =
         getGeminiApiKey();
 
-} catch (Throwable $e) {
+} catch (Throwable $error) {
 
     respond(
         [
             'success' => false,
             'message' =>
-                'Gemini API key configured nahi hai.'
+                'Gemini API key is not configured on the server.'
         ],
         500
     );
 }
-
 
 $raw =
     file_get_contents(
         'php://input'
     );
 
-
-$input =
-    json_decode(
-        $raw ?: '{}',
-        true
-    );
-
-
 if (
-    !is_array($input)
+    $raw === false ||
+    trim($raw) === ''
 ) {
-
-    respond(
-        [
-            'success' => false,
-            'message' => 'Invalid JSON.'
-        ],
-        400
-    );
-}
-
-
-$message =
-    trim(
-        (string) (
-            $input['message'] ?? ''
-        )
-    );
-
-
-if (
-    $message === ''
-) {
-
     respond(
         [
             'success' => false,
             'message' =>
-                'Message is required.'
+                'Request body is empty.'
         ],
         400
     );
 }
 
-
-$model =
-    trim(
-        (string) (
-            $input['model'] ??
-            'gemini-3.8-flash'
-        )
+$input =
+    json_decode(
+        $raw,
+        true
     );
 
-
-if (
-    $model === '' ||
-    $model === 'auto'
-) {
-    $model =
-        'gemini-3.8-flash';
+if (!is_array($input)) {
+    respond(
+        [
+            'success' => false,
+            'message' =>
+                'Invalid JSON request.'
+        ],
+        400
+    );
 }
 
-
-$history =
-    $input['history'] ??
-    [];
-
-
-if (
-    !is_array($history)
-) {
-    $history = [];
-}
-
-
-$contents = [];
-
-
-foreach (
-    $history as $item
-) {
-
-    if (
-        !is_array($item)
-    ) {
-        continue;
-    }
-
-
-    $content =
-        trim(
-            (string) (
-                $item['content'] ??
-                ''
-            )
-        );
-
-
-    if (
-        $content === ''
-    ) {
-        continue;
-    }
-
-
-    $role =
-        ($item['role'] ?? 'user')
-        === 'assistant'
-            ? 'model'
-            : 'user';
-
-
-    $contents[] = [
-        'role' => $role,
-
-        'parts' => [
-            [
-                'text' => $content
-            ]
-        ]
-    ];
-}
-
-
-$currentParts = [
-    [
-        'text' => $message
-    ]
-];
-
+$message =
+    cleanText(
+        $input['message'] ?? '',
+        120000
+    );
 
 $attachments =
     $input['attachments'] ??
     [];
 
-
 if (
-    is_array($attachments)
+    $message === '' &&
+    (
+        !is_array($attachments) ||
+        count($attachments) === 0
+    )
 ) {
-
-    foreach (
-        $attachments as $file
-    ) {
-
-        if (
-            !is_array($file)
-        ) {
-            continue;
-        }
-
-
-        $name =
-            (string) (
-                $file['name'] ??
-                'file'
-            );
-
-
-        $mime =
-            (string) (
-                $file['mimeType'] ??
-                ''
-            );
-
-
-        if (
-            isset($file['text'])
-        ) {
-
-            $currentParts[] = [
-                'text' =>
-                    "\n\nFile: " .
-                    $name .
-                    "\n" .
-                    mb_substr(
-                        (string)
-                        $file['text'],
-                        0,
-                        15000
-                    )
-            ];
-
-            continue;
-        }
-
-
-        if (
-            isset($file['data']) &&
-            (
-                str_starts_with(
-                    $mime,
-                    'image/'
-                ) ||
-                $mime ===
-                    'application/pdf'
-            )
-        ) {
-
-            $currentParts[] = [
-                'inline_data' => [
-                    'mime_type' =>
-                        $mime,
-
-                    'data' =>
-                        (string)
-                        $file['data']
-                ]
-            ];
-        }
-    }
+    respond(
+        [
+            'success' => false,
+            'message' =>
+                'Message ya attachment required hai.'
+        ],
+        400
+    );
 }
 
+$model =
+    allowedModel(
+        cleanText(
+            $input['model'] ??
+                'gemini-3.8-flash',
+            80
+        )
+    );
+
+$contents =
+    normalizeHistory(
+        $input['history'] ??
+            []
+    );
+
+$currentParts = [];
+
+if ($message !== '') {
+
+    $currentParts[] = [
+        'text' =>
+            $message
+    ];
+
+} else {
+
+    $currentParts[] = [
+        'text' =>
+            'Please analyze the attached file(s) and explain the result clearly.'
+    ];
+}
+
+addAttachments(
+    $currentParts,
+    $attachments
+);
 
 $contents[] = [
     'role' => 'user',
@@ -287,23 +348,29 @@ $contents[] = [
         $currentParts
 ];
 
+$systemInstruction = <<<PROMPT
+You are Ankul AI, a helpful personal AI assistant.
 
-$url =
-    'https://generativelanguage.googleapis.com/' .
-    'v1beta/models/' .
-    rawurlencode($model) .
-    ':generateContent';
-
+Core behavior:
+- Answer the user's actual question directly.
+- Be accurate, clear and useful.
+- If the user asks for programming help, provide complete runnable code when appropriate.
+- Support Java, C, C++, Python, JavaScript, HTML, CSS, PHP, SQL, Android and other common technologies.
+- Put programming code inside fenced Markdown code blocks with the correct language name.
+- When fixing code, explain the important fix briefly and then provide the corrected code.
+- Do not invent that an external tool, website, API or file was used if it was not actually used.
+- If information is uncertain or may have changed, say so instead of pretending.
+- For long requests, preserve the user's important requirements and answer in organized sections.
+- The user may communicate in Hindi, Hinglish or English. Reply in the language/style that best matches the user.
+- Never expose, request, or reproduce server-side API keys or secrets.
+PROMPT;
 
 $payload = [
-
     'systemInstruction' => [
         'parts' => [
             [
                 'text' =>
-                    'You are Ankul AI, a helpful personal AI assistant. ' .
-                    'Answer clearly and accurately. ' .
-                    'When giving programming code, format it in code blocks.'
+                    $systemInstruction
             ]
         ]
     ],
@@ -312,7 +379,6 @@ $payload = [
         $contents,
 
     'generationConfig' => [
-
         'temperature' =>
             0.7,
 
@@ -321,15 +387,48 @@ $payload = [
     ]
 ];
 
+$url =
+    'https://generativelanguage.googleapis.com/' .
+    'v1beta/models/' .
+    rawurlencode($model) .
+    ':generateContent';
 
-$ch =
-    curl_init(
-        $url
+$encodedPayload =
+    json_encode(
+        $payload,
+        JSON_UNESCAPED_UNICODE |
+        JSON_UNESCAPED_SLASHES
     );
 
+if (
+    $encodedPayload === false
+) {
+    respond(
+        [
+            'success' => false,
+            'message' =>
+                'Could not encode the Gemini request.'
+        ],
+        500
+    );
+}
+
+$curl =
+    curl_init($url);
+
+if ($curl === false) {
+    respond(
+        [
+            'success' => false,
+            'message' =>
+                'Server could not initialize the Gemini connection.'
+        ],
+        500
+    );
+}
 
 curl_setopt_array(
-    $ch,
+    $curl,
     [
         CURLOPT_POST =>
             true,
@@ -337,58 +436,44 @@ curl_setopt_array(
         CURLOPT_RETURNTRANSFER =>
             true,
 
+        CURLOPT_FOLLOWLOCATION =>
+            false,
+
+        CURLOPT_CONNECTTIMEOUT =>
+            20,
+
+        CURLOPT_TIMEOUT =>
+            180,
+
         CURLOPT_HTTPHEADER => [
-
             'Content-Type: application/json',
-
+            'Accept: application/json',
             'x-goog-api-key: ' .
                 $apiKey
         ],
 
         CURLOPT_POSTFIELDS =>
-            json_encode(
-                $payload,
-                JSON_UNESCAPED_UNICODE |
-                JSON_UNESCAPED_SLASHES
-            ),
-
-        CURLOPT_CONNECTTIMEOUT =>
-            15,
-
-        CURLOPT_TIMEOUT =>
-            120
+            $encodedPayload
     ]
 );
 
-
 $response =
-    curl_exec(
-        $ch
-    );
+    curl_exec($curl);
 
-
-$error =
-    curl_error(
-        $ch
-    );
-
+$curlError =
+    curl_error($curl);
 
 $status =
-    curl_getinfo(
-        $ch,
+    (int)curl_getinfo(
+        $curl,
         CURLINFO_HTTP_CODE
     );
 
-
-curl_close(
-    $ch
-);
-
+curl_close($curl);
 
 if (
     $response === false
 ) {
-
     respond(
         [
             'success' => false,
@@ -397,12 +482,13 @@ if (
                 'Gemini connection failed.',
 
             'error' =>
-                $error
+                $curlError !== ''
+                    ? $curlError
+                    : 'Unknown cURL error.'
         ],
         502
     );
 }
-
 
 $result =
     json_decode(
@@ -410,38 +496,41 @@ $result =
         true
     );
 
-
-if (
-    !is_array($result)
-) {
-
+if (!is_array($result)) {
     respond(
         [
             'success' => false,
 
             'message' =>
-                'Invalid Gemini response.'
+                'Gemini returned an invalid response.',
+
+            'http_status' =>
+                $status
         ],
         502
     );
 }
 
-
 if (
     $status < 200 ||
     $status >= 300
 ) {
+    $apiMessage =
+        $result['error']['message'] ??
+        'Gemini API request failed.';
 
     respond(
         [
             'success' => false,
 
             'message' =>
-                $result['error']['message'] ??
-                'Gemini API error.',
+                (string)$apiMessage,
 
             'model' =>
-                $model
+                $model,
+
+            'http_status' =>
+                $status
         ],
         $status >= 400
             ? $status
@@ -449,54 +538,74 @@ if (
     );
 }
 
-
 $text = '';
 
+$candidates =
+    $result['candidates'] ??
+    [];
 
-$parts =
-    $result['candidates'][0]['content']['parts']
-    ?? [];
+if (is_array($candidates)) {
 
-
-foreach (
-    $parts as $part
-) {
-
-    if (
-        isset($part['text'])
+    foreach (
+        $candidates as $candidate
     ) {
+        $parts =
+            $candidate['content']['parts'] ??
+            [];
 
-        $text .=
-            (string)
-            $part['text'];
+        if (!is_array($parts)) {
+            continue;
+        }
+
+        foreach (
+            $parts as $part
+        ) {
+            if (
+                isset(
+                    $part['text']
+                )
+            ) {
+                $text .=
+                    (string)$part['text'];
+            }
+        }
+
+        if (
+            $text !== ''
+        ) {
+            break;
+        }
     }
 }
-
 
 $text =
     trim($text);
 
+if ($text === '') {
 
-if (
-    $text === ''
-) {
+    $finishReason =
+        $result['candidates'][0]['finishReason'] ??
+        null;
 
     respond(
         [
             'success' => false,
 
             'message' =>
-                'Gemini returned an empty response.'
+                $finishReason
+                    ? "Gemini did not return text. Finish reason: {$finishReason}"
+                    : 'Gemini returned an empty response.',
+
+            'model' =>
+                $model
         ],
         502
     );
 }
 
-
 respond(
     [
-        'success' =>
-            true,
+        'success' => true,
 
         'message' =>
             $text,
